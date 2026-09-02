@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.3.0';
+  const APP_VERSION = '2.3.1';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -97,14 +97,14 @@
   async function saveBackup() {
     const name = C.fileName('backup', 'json', Object.keys(records).length);
     const res = await deliverFiles([new File([C.buildBackup(records, settings)], name, { type: 'application/json' })]);
-    if (res !== 'cancelled') { await markExported(); toast('Backup ' + res + ': ' + name); } else toast('Backup cancelled');
+    if (res !== 'cancelled') { await markExported(); toast('Backup saved', name, 'ok'); } else toast('Backup cancelled');
     render();
   }
   async function exportCSVs() {
     const name = C.fileName('data', 'csv', Object.keys(records).length);
     const res = await deliverFiles([new File([C.buildCombined(records, settings)], name, { type: 'text/csv' })]);
     // A CSV cannot be restored with Import backup, so it does not count as a backup.
-    toast(res === 'cancelled' ? 'Export cancelled' : 'CSV export ' + res + ' · not a backup: use Save backup for that');
+    if (res === 'cancelled') toast('Export cancelled'); else toast('CSV exported', name + ' · This is not a backup. Use Save backup for that.', 'ok');
     render();
   }
   function importBackup(file) {
@@ -115,16 +115,19 @@
         const before = Object.keys(records).length;
         records = C.mergeRecords(records, imp);
         await persist();
-        toast('Imported ' + Object.keys(imp).length + ' participants (' + (Object.keys(records).length - before) + ' new)');
+        toast('Backup imported', Object.keys(imp).length + ' participants in file · ' + (Object.keys(records).length - before) + ' new on this device', 'ok');
         render();
       } catch (e) { dialog({ title: 'Import failed', message: esc(e.message), tone: 'danger' }); }
     };
     rd.readAsText(file);
   }
 
-  // ---------- tiny toast ----------
-  function toast(msg) {
-    const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3500);
+  // ---------- toast: title + optional detail line; tone picks the icon colour ----------
+  function toast(title, detail, tone) {
+    const t = $('#toast');
+    t.className = tone || '';
+    t.innerHTML = `${icon(tone === 'ok' ? 'ok' : tone === 'warn' || tone === 'danger' ? 'warn' : 'info')}<div><div class="t-title">${esc(title)}</div>${detail ? `<div class="t-detail">${esc(detail)}</div>` : ''}</div>`;
+    t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, detail ? 5000 : 3200);
   }
 
   // ---------- in-app alert: resolves true (confirmed) or false (cancelled) ----------
@@ -154,6 +157,7 @@
   // ---------- views ----------
   function go(v) { if (pendingReload && v.name === 'home') { location.reload(); return; } view = v; render(); window.scrollTo(0, 0); }
   function render() {
+    document.body.classList.toggle('has-tasknav', view.name === 'task');
     const root = $('#app');
     const fn = VIEWS[view.name] || VIEWS.home;
     root.innerHTML = fn(view);
@@ -178,7 +182,8 @@
     ok: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
-    moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>'
+    moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.1"/>'
   };
   const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -294,7 +299,7 @@
     form.onsubmit = e => {
       e.preventDefault();
       const errors = C.validateDemo(r.demo, settings);
-      if (Object.keys(errors).length) { v.errors = errors; render(); toast('Please complete the highlighted fields'); const first = $('.field.err'); first && first.scrollIntoView({ block: 'center' }); return; }
+      if (Object.keys(errors).length) { v.errors = errors; render(); toast('Some fields need attention', 'Complete the highlighted fields to continue.', 'warn'); const first = $('.field.err'); first && first.scrollIntoView({ block: 'center' }); return; }
       go({ name: 'apais', pid: v.pid });
     };
   };
@@ -387,7 +392,7 @@
         if (v.i < n) { await touch(r); go({ name: 'task', pid: v.pid, i: v.i + 1 }); }
         else {
           const missing = C.firstIncompleteTask(r);
-          if (missing) { toast('Task ' + missing + ' is incomplete'); go({ name: 'task', pid: v.pid, i: missing }); return; }
+          if (missing) { toast('Task ' + missing + ' is incomplete', 'Choose a most and a least important outcome.', 'warn'); go({ name: 'task', pid: v.pid, i: missing }); return; }
           r.status = 'complete'; await touch(r); go({ name: 'review', pid: v.pid });
         }
       }
@@ -493,7 +498,7 @@
       settings.interviewer = f.interviewer.value.trim();
       settings.exportLimit = Math.max(0, Number(f.exportLimit.value) || 0);
       settings.recordName = f.recordName.checked;
-      await persist(); toast('Settings saved'); go({ name: 'home' });
+      await persist(); toast('Settings saved', null, 'ok'); go({ name: 'home' });
     };
     $('[data-act="wipe"]').onclick = async () => {
       const n = Object.keys(records).length, un = C.unexportedCount(records);
@@ -506,7 +511,7 @@
       });
       if (!ok) { toast('Reset cancelled'); return; }
       records = {}; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
-      await persist(); toast('Device reset: all data erased, settings restored'); go({ name: 'home' });
+      await persist(); toast('Device reset', 'All data erased and settings restored.', 'ok'); go({ name: 'home' });
     };
   };
 
@@ -525,7 +530,7 @@
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadController) { hadController = true; return; }   // first install, nothing to swap
         if (view.name === 'home' || view.name === 'settings') { location.reload(); return; }
-        pendingReload = true; toast('App updated. It will refresh when you return to Home.');
+        pendingReload = true; toast('Update ready', 'The app will refresh when you return to Home.');
       });
       navigator.serviceWorker.register('./sw.js').then(reg => { reg.update().catch(() => {}); }).catch(() => {});
     }
