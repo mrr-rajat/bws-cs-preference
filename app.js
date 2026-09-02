@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '2.0.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul' };
 
@@ -124,6 +124,24 @@
   }
   const VIEWS = {};
 
+  // ---------- icons (inline SVG, currentColor) ----------
+  const ICONS = {
+    gear: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    play: '<path d="M7 4.5v15l12-7.5z"/>',
+    chevL: '<path d="m15 5-7 7 7 7"/>',
+    chevR: '<path d="m9 5 7 7-7 7"/>',
+    check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    down: '<path d="M12 4v11m0 0 5-5m-5 5-5-5M4 19h16"/>',
+    table: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 10h17M9 10v9"/>',
+    up: '<path d="M12 20V9m0 0 5 5m-5-5-5 5M4 4h16"/>',
+    warn: '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.4v.1"/>',
+    ok: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>'
+  };
+  const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
   function statusPill(r) {
     const map = { in_progress: ['In progress', 'pill-amber'], complete: ['Complete', 'pill-green'], withdrawn: ['Withdrawn', 'pill-grey'] };
     const [t, c] = map[r.status] || [r.status, 'pill-grey'];
@@ -133,7 +151,16 @@
   // "Name (ID 12)" when a name was recorded, otherwise "ID 12".
   function labelFor(r) {
     const name = (r.demo && r.demo.name || '').trim();
-    return name ? `<b>${esc(name)}</b> <small class="muted">(ID ${r.pid})</small>` : `<b>ID ${r.pid}</b>`;
+    return name ? `<b>${esc(name)}</b> <small>(ID ${r.pid})</small>` : `<b>ID ${r.pid}</b>`;
+  }
+  const fmtTime = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const fmtDateTime = iso => new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  // Standard inner-screen navigation bar. `left` and `right` are {act, label} or null.
+  function navBar(title, left, right) {
+    const btn = (b, side) => b ? `<button class="nav-btn nav-${side}" data-act="${b.act}">${side === 'l' ? icon('chevL') : ''}${esc(b.label)}</button>`
+      : `<span class="nav-${side}"></span>`;
+    return `<header class="nav bar"><div class="nav-row">${btn(left, 'l')}<h1>${title}</h1>${right && right.meta ? `<span class="nav-r nav-meta">${esc(right.meta)}</span>` : btn(right, 'r')}</div></header>`;
   }
 
   // ---- HOME ----
@@ -144,28 +171,31 @@
     const un = C.unexportedCount(records);
     const blocked = settings.exportLimit > 0 && un >= settings.exportLimit;
     const inprog = list.filter(r => r.status === 'in_progress');
+    const complete = list.filter(r => r.status === 'complete').length;
     return `
-    <header class="bar"><h1>CS Preference BWS</h1><button class="link" data-act="settings">Settings</button></header>
-    ${un ? `<div class="banner banner-line ${blocked ? 'banner-red' : 'banner-amber'}">
-      <span><b>${un}</b> not backed up${blocked ? ' · new participants blocked' : ''}</span>
-      <button data-act="backup">Save backup</button></div>` : ''}
-    <section class="card">
-      <button class="primary big" data-act="new" ${nextId === null || blocked ? 'disabled' : ''}>New participant${nextId ? ' — ID ' + nextId : ' (all 224 used)'}</button>
-      ${inprog.map(r => `<button class="secondary big" data-act="open" data-pid="${r.pid}">Resume ${labelFor(r)} <small>· ${C.tasksDone(r)}/12 tasks · saved ${new Date(r.updatedAt).toLocaleTimeString()}</small></button>`).join('')}
-      <div class="row3">
-        <button data-act="backup">Save backup<br><small>1 file, full copy</small></button>
-        <button data-act="export">Export CSV<br><small>1 file, for R / Excel</small></button>
-        <button data-act="import">Import backup<br><small>restore</small></button>
-      </div>
-      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <header class="nav nav-large"><div class="nav-row"><h1 class="large-title">CS Preference BWS</h1><button class="icon-btn" data-act="settings" aria-label="Settings">${icon('gear')}</button></div></header>
+    ${un ? `<div class="callout ${blocked ? 'callout-danger' : 'callout-warn'}" role="status">${icon(blocked ? 'lock' : 'warn')}
+      <span class="msg"><b>${un}</b> not backed up${blocked ? ' · new participants blocked' : ''}</span>
+      <button class="btn" data-act="backup">Save backup</button></div>` : ''}
+    <section class="card stack">
+      <button class="btn btn-primary btn-block btn-hero" data-act="new" ${nextId === null || blocked ? 'disabled' : ''}>${icon('plus')} New participant ${nextId ? `<span class="chip">ID ${nextId}</span>` : '<span class="chip">all 224 used</span>'}</button>
+      ${inprog.map(r => `<button class="btn btn-tinted btn-block btn-hero resume secondary big" data-act="open" data-pid="${r.pid}">
+        <span class="l">${icon('play')} Resume ${labelFor(r)}</span><span class="r">${C.tasksDone(r)}/12 tasks · ${fmtTime(r.updatedAt)}</span></button>`).join('')}
     </section>
+    <div class="tiles">
+      <button class="tile" data-act="backup">${icon('down')}<b>Save backup</b><small>Full copy · 1 file</small></button>
+      <button class="tile" data-act="export">${icon('table')}<b>Export CSV</b><small>For R / Excel</small></button>
+      <button class="tile" data-act="import">${icon('up')}<b>Import backup</b><small>Restore</small></button>
+    </div>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <div class="section-h"><h2>Participants</h2><span class="meta">${list.length} of 224 · ${complete} complete</span></div>
     <section class="card">
-      <h2>Participants <small>${list.length} of 224 · ${list.filter(r => r.status === 'complete').length} complete</small></h2>
       ${list.length ? '<ul class="plist">' + list.map(r => `<li data-act="open" data-pid="${r.pid}">
-          ${labelFor(r)} ${statusPill(r)} <span class="muted">${C.tasksDone(r)}/12 tasks · ${new Date(r.updatedAt).toLocaleString()}</span>
-          ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}</li>`).join('') + '</ul>' : '<p class="muted">No participants yet.</p>'}
+          <div class="row-main"><div class="row-title">${labelFor(r)}</div><div class="row-sub">${C.tasksDone(r)}/12 tasks · ${fmtDateTime(r.updatedAt)}</div></div>
+          ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}${statusPill(r)}${icon('chevR', 'chev')}</li>`).join('') + '</ul>'
+        : '<p class="empty">No participants yet. Tap “New participant” to begin.</p>'}
     </section>
-    <footer class="muted small">v${APP_VERSION} · data stays on this device until you export · <span id="online">${navigator.onLine ? 'online' : 'offline'}</span></footer>`;
+    <footer>v${APP_VERSION} · Data stays on this device until you export · <span id="online">${navigator.onLine ? 'Online' : 'Offline'}</span></footer>`;
   };
   VIEWS.home.bind_ = () => {
     $('#app').onclick = e => {
@@ -199,18 +229,21 @@
   }
 
   // ---- DEMOGRAPHICS ----
+  const WIDE_FIELDS = new Set(['name', 'indication_cs', 'comorbidities', 'previous_cs_event', 'other_surgery_detail', 'education', 'administration_mode']);
   VIEWS.demo = v => {
     const r = records[v.pid]; const errs = v.errors || {};
     const fields = C.DEMO_FIELDS.filter(f => C.fieldVisible(f, r.demo, settings));
     return `
-    <header class="bar"><button class="link" data-act="home">‹ Save & exit</button><h1>ID ${r.pid} · Case proforma</h1><span></span></header>
-    <form id="demo-form" class="card" autocomplete="off">
-      ${fields.map(f => `<label class="field ${errs[f.key] ? 'err' : ''}"><span>${esc(f.label)}${f.optional ? ' <em>(optional)</em>' : ''}</span>
+    ${navBar(`ID ${r.pid} · Case proforma`, { act: 'home', label: 'Save & exit' }, null)}
+    <form id="demo-form" class="card" autocomplete="off" novalidate>
+      <div class="form-grid">
+      ${fields.map(f => `<label class="field ${errs[f.key] ? 'err' : ''} ${WIDE_FIELDS.has(f.key) ? 'span2' : ''}"><span>${esc(f.label)}${f.optional ? ' <em>· optional</em>' : ''}</span>
         ${f.type === 'select'
-          ? `<select name="${f.key}"><option value="">— select —</option>${f.options.map(o => `<option ${r.demo[f.key] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+          ? `<select name="${f.key}"><option value="">Select…</option>${f.options.map(o => `<option ${r.demo[f.key] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
           : `<input name="${f.key}" type="${f.type}" ${f.type === 'number' ? 'inputmode="decimal" step="any"' : ''} value="${esc(r.demo[f.key])}" placeholder="${esc(f.placeholder || '')}">`}
         ${errs[f.key] ? `<small class="errmsg">${esc(errs[f.key])}</small>` : ''}</label>`).join('')}
-      <button class="primary big" type="submit">Save & continue to anxiety scale ›</button>
+      </div>
+      <button class="btn btn-primary btn-block btn-hero" type="submit">Continue to anxiety scale ${icon('chevR')}</button>
     </form>`;
   };
   VIEWS.demo.bind_ = v => {
@@ -220,7 +253,7 @@
     form.onsubmit = e => {
       e.preventDefault();
       const errors = C.validateDemo(r.demo, settings);
-      if (Object.keys(errors).length) { v.errors = errors; render(); toast('Please complete the highlighted fields'); return; }
+      if (Object.keys(errors).length) { v.errors = errors; render(); toast('Please complete the highlighted fields'); const first = $('.field.err'); first && first.scrollIntoView({ block: 'center' }); return; }
       go({ name: 'apais', pid: v.pid });
     };
   };
@@ -229,16 +262,16 @@
   VIEWS.apais = v => {
     const r = records[v.pid]; const s = C.apaisScores(r.apais);
     return `
-    <header class="bar"><button class="link" data-act="back">‹ Proforma</button><h1>ID ${r.pid} · Preoperative anxiety (APAIS)</h1><button class="link" data-act="home">Save & exit</button></header>
+    ${navBar(`ID ${r.pid} · Anxiety scale`, { act: 'back', label: 'Proforma' }, { act: 'home', label: 'Save & exit' })}
     <section class="card">
-      <p class="hi">कृपया बताइए कि हर वाक्य आप पर कितना लागू होता है।</p>
-      <p class="muted small">Please indicate how strongly each statement applies to you (1 = not at all, 5 = extremely).</p>
+      <p class="hi instr">कृपया बताइए कि हर वाक्य आप पर कितना लागू होता है।</p>
+      <p class="small muted">Amsterdam Preoperative Anxiety and Information Scale. 1 = not at all, 5 = extremely.</p>
       ${C.APAIS.map(q => `<div class="q">
-        <p class="hi">${q.n}. ${esc(q.hi)}</p><p class="en">${esc(q.en)}</p>
-        <div class="scale">${C.APAIS_SCALE.map(o => `<button type="button" class="opt ${Number(r.apais[q.n]) === o.v ? 'sel' : ''}" data-q="${q.n}" data-v="${o.v}"><b>${o.v}</b><span class="hi">${esc(o.hi)}</span><span class="en">${esc(o.en)}</span></button>`).join('')}</div>
+        <p class="q-hi hi">${q.n}. ${esc(q.hi)}</p><p class="q-en">${esc(q.en)}</p>
+        <div class="scale">${C.APAIS_SCALE.map(o => `<button type="button" class="opt ${Number(r.apais[q.n]) === o.v ? 'sel' : ''}" data-q="${q.n}" data-v="${o.v}"><b>${o.v}</b><span class="o-hi hi">${esc(o.hi)}</span><span class="o-en">${esc(o.en)}</span></button>`).join('')}</div>
       </div>`).join('')}
-      <p class="muted small">Anxiety score ${s.anxiety === null ? '—' : s.anxiety + '/20' + (s.highAnxiety ? ' (high, ≥11)' : '')} · Information score ${s.information === null ? '—' : s.information + '/10'}</p>
-      <button class="primary big" data-act="next" ${s.complete ? '' : 'disabled'}>Continue to choice tasks ›</button>
+      <div class="score-line"><span>Anxiety score <b>${s.anxiety === null ? '—' : s.anxiety + '/20'}</b>${s.highAnxiety ? ' (high, ≥11)' : ''}</span><span>Information score <b>${s.information === null ? '—' : s.information + '/10'}</b></span></div>
+      <button class="btn btn-primary btn-block btn-hero" data-act="next" ${s.complete ? '' : 'disabled'}>Continue to choice tasks ${icon('chevR')}</button>
     </section>`;
   };
   VIEWS.apais.bind_ = v => {
@@ -254,13 +287,13 @@
 
   // ---- BWS INTRO (patient information wording, Hindi) ----
   VIEWS.intro = v => `
-    <header class="bar"><button class="link" data-act="back">‹ Anxiety scale</button><h1>ID ${v.pid} · Instructions</h1><span></span></header>
+    ${navBar(`ID ${v.pid} · Instructions`, { act: 'back', label: 'Back' }, null)}
     <section class="card">
-      <p class="hi big-text">अब आपको 12 सवाल दिखाए जाएँगे। हर सवाल में चार ऐसी बातें होंगी जो एनेस्थीसिया और ऑपरेशन के बाद ठीक होने के दौरान आपके लिए ज़रूरी हो सकती हैं।</p>
-      <p class="hi big-text">हर सवाल में पहले वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे ज़्यादा ज़रूरी</b> है, फिर वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे कम ज़रूरी</b> है।</p>
-      <p class="hi big-text">इसका कोई सही या गलत जवाब नहीं है। अपनी पसंद के आधार पर चुनें, न कि इस आधार पर कि डॉक्टर या परिवार क्या पसंद करेंगे।</p>
-      <p class="en">You will see 12 sets of four outcomes. In each set choose the ONE most important to you (BEST) and the ONE least important (WORST). There are no right or wrong answers. The interviewer reads options verbatim and does not suggest or influence the choice.</p>
-      <button class="primary big" data-act="start">शुरू करें · Start</button>
+      <p class="hi instr">अब आपको 12 सवाल दिखाए जाएँगे। हर सवाल में चार ऐसी बातें होंगी जो एनेस्थीसिया और ऑपरेशन के बाद ठीक होने के दौरान आपके लिए ज़रूरी हो सकती हैं।</p>
+      <p class="hi instr">हर सवाल में पहले वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे ज़्यादा ज़रूरी</b> है, फिर वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे कम ज़रूरी</b> है।</p>
+      <p class="hi instr">इसका कोई सही या गलत जवाब नहीं है। अपनी पसंद के आधार पर चुनें, न कि इस आधार पर कि डॉक्टर या परिवार क्या पसंद करेंगे।</p>
+      <p class="small muted">You will see 12 sets of four outcomes. In each set choose the ONE most important to you (BEST) and the ONE least important (WORST). There are no right or wrong answers. The interviewer reads options verbatim and does not suggest or influence the choice.</p>
+      <button class="btn btn-primary btn-block btn-hero" data-act="start">शुरू करें · Start ${icon('chevR')}</button>
     </section>`;
   VIEWS.intro.bind_ = v => {
     $('[data-act="back"]').onclick = () => go({ name: 'apais', pid: v.pid });
@@ -273,21 +306,21 @@
     if (!t.startedAt) { t.startedAt = nowISO(); touch(r); }
     const done = C.taskComplete(t);
     return `
-    <header class="bar"><button class="link" data-act="home">‹ Save & exit</button><h1>ID ${r.pid} · सवाल ${v.i} / ${n}</h1><span class="muted small">set ${t.taskId}</span></header>
-    <div class="progress"><div style="width:${((v.i - 1) / n) * 100}%"></div></div>
+    ${navBar(`ID ${r.pid} · सवाल ${v.i} / ${n}`, { act: 'home', label: 'Save & exit' }, { meta: `Set ${t.taskId}` })}
+    <div class="stepper" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k + 1 < v.i || (k + 1 === v.i && done) ? 'done' : k + 1 === v.i ? 'cur' : ''}"></i>`).join('')}</div>
     <section class="card">
-      <div class="thead"><span></span><span class="hi">सबसे ज़्यादा ज़रूरी<br><small class="en">Most important</small></span><span class="hi">सबसे कम ज़रूरी<br><small class="en">Least important</small></span></div>
-      ${t.options.map((oid, p) => { const o = C.OUTCOME_BY_ID[oid]; return `
+      <div class="thead"><span></span><span class="col col-best hi">सबसे ज़्यादा ज़रूरी<small>Most important</small></span><span class="col col-worst hi">सबसे कम ज़रूरी<small>Least important</small></span></div>
+      ${t.options.map(oid => { const o = C.OUTCOME_BY_ID[oid]; return `
       <div class="trow ${t.best === oid ? 'is-best' : ''} ${t.worst === oid ? 'is-worst' : ''}">
-        <div class="otext"><span class="hi big-text">${esc(o.hi)}</span><span class="hi small muted">${esc(o.hi_desc)}</span><span class="en">${esc(o.en)}</span></div>
-        <button type="button" class="choice best ${t.best === oid ? 'sel' : ''}" data-kind="best" data-oid="${oid}" ${t.worst === oid ? 'disabled' : ''} aria-label="Best: ${esc(o.en)}">✓</button>
-        <button type="button" class="choice worst ${t.worst === oid ? 'sel' : ''}" data-kind="worst" data-oid="${oid}" ${t.best === oid ? 'disabled' : ''} aria-label="Worst: ${esc(o.en)}">✗</button>
+        <div class="otext"><span class="o-hi hi">${esc(o.hi)}</span><span class="o-desc hi">${esc(o.hi_desc)}</span><span class="o-en">${esc(o.en)}</span></div>
+        <button type="button" class="choice best ${t.best === oid ? 'sel' : ''}" data-kind="best" data-oid="${oid}" ${t.worst === oid ? 'disabled' : ''} aria-label="Most important: ${esc(o.en)}">${icon('check')}</button>
+        <button type="button" class="choice worst ${t.worst === oid ? 'sel' : ''}" data-kind="worst" data-oid="${oid}" ${t.best === oid ? 'disabled' : ''} aria-label="Least important: ${esc(o.en)}">${icon('x')}</button>
       </div>`; }).join('')}
-      <div class="nav">
-        <button data-act="prev" ${v.i === 1 ? 'disabled' : ''}>‹ पिछला</button>
-        <button class="primary" data-act="next" ${done ? '' : 'disabled'}>${v.i === n ? 'समाप्त · Finish' : 'अगला ›'}</button>
+      <div class="task-nav">
+        <button class="btn btn-plain" data-act="prev" ${v.i === 1 ? 'disabled' : ''}>${icon('chevL')} पिछला</button>
+        <button class="btn btn-primary" data-act="next" ${done ? '' : 'disabled'}>${v.i === n ? 'समाप्त · Finish' : 'अगला'} ${icon(v.i === n ? 'check' : 'chevR')}</button>
       </div>
-      <p class="muted small">${done ? 'Both chosen.' : (!t.best ? 'Choose the most important (✓)…' : 'Now choose the least important (✗)…')}</p>
+      <p class="hint">${done ? 'Both chosen. Tap Next.' : (!t.best ? 'Tap ✓ on the most important outcome.' : 'Now tap ✗ on the least important outcome.')}</p>
     </section>`;
   };
   VIEWS.task.bind_ = v => {
@@ -322,30 +355,35 @@
     const r = records[v.pid]; const s = C.apaisScores(r.apais); const un = C.unexportedCount(records);
     const n = Object.keys(r.tasks).length;
     return `
-    <header class="bar"><button class="link" data-act="home">‹ Home</button><h1>ID ${r.pid} · ${statusPill(r)}</h1><span></span></header>
+    ${navBar(labelFor(r), { act: 'home', label: 'Home' }, null)}
     <section class="card">
-      <h2>${r.status === 'complete' ? 'Interview complete' : 'Summary'}</h2>
-      <p>${C.tasksDone(r)}/${n} tasks · APAIS anxiety ${s.anxiety ?? '—'} · information ${s.information ?? '—'}</p>
-      ${C.needsExport(r) ? `<div class="banner banner-amber">Not backed up yet (${un} pending). <button data-act="backup">Save backup now</button></div>` : '<p class="muted small">Backed up ' + new Date(r.exportedAt).toLocaleString() + '</p>'}
-      <div class="row3">
-        <button data-act="backup">Save backup</button>
-        <button data-act="export">Export CSV</button>
-        <button class="primary" data-act="home">Done · Home</button>
+      <div class="section-h"><h2>${r.status === 'complete' ? 'Interview complete' : r.status === 'withdrawn' ? 'Withdrawn' : 'In progress'}</h2>${statusPill(r)}</div>
+      <div class="stat-grid">
+        <div class="stat"><b>${C.tasksDone(r)}<span style="font-size:var(--fs-sub);font-weight:500;color:var(--text-2)">/${n}</span></b><span>tasks</span></div>
+        <div class="stat"><b>${s.anxiety ?? '—'}</b><span>APAIS anxiety</span></div>
+        <div class="stat"><b>${s.information ?? '—'}</b><span>APAIS information</span></div>
+      </div>
+      ${C.needsExport(r)
+        ? `<div class="callout callout-warn">${icon('warn')}<span class="msg">Not backed up${un > 1 ? ` · ${un} pending` : ''}</span><button class="btn" data-act="backup">Save backup</button></div>`
+        : `<div class="callout callout-ok">${icon('ok')}<span class="msg">Backed up ${fmtDateTime(r.exportedAt)}</span></div>`}
+      <div class="btn-row">
+        <button class="btn btn-plain" data-act="export">${icon('table')} Export CSV</button>
+        <button class="btn btn-primary" data-act="home">Done</button>
       </div>
     </section>
+    <div class="section-h"><h2>Choices</h2><span class="meta">best · worst</span></div>
     <section class="card">
-      <h2>Choices</h2>
-      <table class="mini"><tr><th>#</th><th>Set</th><th>Best</th><th>Worst</th></tr>
-      ${Array.from({ length: n }, (_, i) => r.tasks[i + 1]).map((t, i) => `<tr><td>${i + 1}</td><td>${t.taskId}</td><td>${t.best ? esc(C.OUTCOME_BY_ID[t.best].en) : '—'}</td><td>${t.worst ? esc(C.OUTCOME_BY_ID[t.worst].en) : '—'}</td></tr>`).join('')}</table>
+      <table class="mini"><tr><th>#</th><th>Set</th><th>Most important</th><th>Least important</th></tr>
+      ${Array.from({ length: n }, (_, i) => r.tasks[i + 1]).map((t, i) => `<tr><td class="n">${i + 1}</td><td class="n">${t.taskId}</td><td class="best">${t.best ? esc(C.OUTCOME_BY_ID[t.best].en) : '—'}</td><td class="worst">${t.worst ? esc(C.OUTCOME_BY_ID[t.worst].en) : '—'}</td></tr>`).join('')}</table>
     </section>
+    <div class="section-h"><h2>Edit</h2></div>
     <section class="card">
-      <h2>Edit</h2>
-      <div class="row3">
-        <button data-act="demo">Proforma</button>
-        <button data-act="apais">Anxiety scale</button>
-        ${r.status === 'in_progress' ? `<button data-act="tasks">Choice tasks</button>` : ''}
+      <div class="btn-row">
+        <button class="btn btn-plain" data-act="demo">Proforma</button>
+        <button class="btn btn-plain" data-act="apais">Anxiety scale</button>
+        ${r.status === 'in_progress' ? `<button class="btn btn-plain" data-act="tasks">Choice tasks</button>` : ''}
       </div>
-      ${r.status !== 'withdrawn' ? `<button class="danger-link" data-act="withdraw">Mark as withdrawn / incomplete</button>` : `<button class="link" data-act="reopen">Re-open as in progress</button>`}
+      ${r.status !== 'withdrawn' ? `<button class="btn btn-danger-text btn-block" data-act="withdraw">Mark as withdrawn / incomplete</button>` : `<button class="btn btn-text btn-block" data-act="reopen">Re-open as in progress</button>`}
     </section>`;
   };
   VIEWS.review.bind_ = v => {
@@ -366,23 +404,28 @@
 
   // ---- SETTINGS ----
   VIEWS.settings = () => `
-    <header class="bar"><button class="link" data-act="home">‹ Home</button><h1>Settings</h1><span></span></header>
+    ${navBar('Settings', { act: 'home', label: 'Home' }, null)}
     <form id="settings-form" class="card">
-      <label class="field"><span>Default interviewer initials</span><input name="interviewer" value="${esc(settings.interviewer)}"></label>
-      <label class="field"><span>Block new participants when this many are not backed up (0 = never block)</span><input name="exportLimit" type="number" inputmode="numeric" min="0" max="50" value="${settings.exportLimit}"></label>
-      <label class="check"><input type="checkbox" name="recordName" ${settings.recordName ? 'checked' : ''}> Record patient name in the app <small class="muted">(uncheck for study ID only, with the name kept on the paper consent form)</small></label>
-      <button class="primary" type="submit">Save settings</button>
+      <label class="field"><span>Default interviewer</span><input name="interviewer" value="${esc(settings.interviewer)}" autocapitalize="words"></label>
+      <label class="field"><span>Block new participants when this many are not backed up <em>· 0 never blocks</em></span><input name="exportLimit" type="number" inputmode="numeric" min="0" max="50" value="${settings.exportLimit}"></label>
+      <label class="check"><input type="checkbox" name="recordName" ${settings.recordName ? 'checked' : ''}><span>Record patient name in the app<small>Uncheck for study-ID-only operation, with the name kept on the paper consent form.</small></span></label>
+      <button class="btn btn-primary btn-block" type="submit">Save settings</button>
     </form>
+    <div class="section-h"><h2>About</h2></div>
     <section class="card">
-      <h2>About</h2>
-      <p class="small muted">Patient priorities for outcomes related to anaesthesia and perioperative care during elective caesarean delivery: a best-worst scaling study. MAMC / Lok Nayak Hospital.</p>
-      <p class="small muted">App v${APP_VERSION} · design: 224 participants × 12 tasks × 4 outcomes (participants 1–200 from the approved randomisation file, 201–224 extended with the same method).</p>
-      <p class="small muted">Storage: localStorage ${lsGet(LS_RECORDS) ? 'OK' : 'empty'} · IndexedDB ${db ? 'OK' : 'unavailable'} · ${Object.keys(records).length} participants on device.</p>
+      <p class="small">Patient priorities for outcomes related to anaesthesia and perioperative care during elective caesarean delivery: a best-worst scaling study. MAMC / Lok Nayak Hospital.</p>
+      <div>
+        <div class="srow"><span>App version</span><span>${APP_VERSION}</span></div>
+        <div class="srow"><span>Design</span><span>224 participants × 12 tasks × 4 outcomes</span></div>
+        <div class="srow"><span>Randomisation</span><span>1–200 approved file · 201–224 extended</span></div>
+        <div class="srow"><span>Storage</span><span>localStorage ${lsGet(LS_RECORDS) ? 'OK' : 'empty'} · IndexedDB ${db ? 'OK' : 'unavailable'}</span></div>
+        <div class="srow"><span>On this device</span><span>${Object.keys(records).length} participants</span></div>
+      </div>
     </section>
+    <div class="section-h"><h2>Factory reset</h2></div>
     <section class="card">
-      <h2>Factory reset</h2>
       <p class="small muted">Erases every participant record and restores default settings on this device. The hosted app and any backup files you have saved are not affected. Save a backup first.</p>
-      <button class="danger-link" data-act="wipe">Factory reset this device…</button>
+      <button class="btn btn-danger-text btn-block" data-act="wipe">Factory reset this device…</button>
     </section>`;
   VIEWS.settings.bind_ = () => {
     $('[data-act="home"]').onclick = () => go({ name: 'home' });
@@ -409,8 +452,8 @@
     if (problems.length) { alert('Design file problem: ' + problems.slice(0, 3).join('; ')); }
     await loadAll();
     render();
-    window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'online'; });
-    window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'offline'; });
+    window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
+    window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });
     if ('serviceWorker' in navigator && location.protocol !== 'file:' && !/nosw/.test(location.search)) {
       navigator.serviceWorker.register('./sw.js').then(reg => {
         reg.addEventListener('updatefound', () => {
