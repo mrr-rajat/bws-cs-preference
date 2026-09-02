@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.7.0';
+  const APP_VERSION = '2.8.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1', LS_DELETED = 'bws.deleted.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -156,49 +156,56 @@
   }
 
   // ---------- views ----------
-  // ---------- navigation: a real stack. Home is the root; back pops; browser history mirrors the depth. ----------
+  // ---------- navigation: a stack of page entries { name, pid?, i?, scrollY }. Home is the root. ----------
+  // The stack is the only authority. Browser history is a mirror tagged with a per-launch token, so stale entries
+  // (e.g. restored by iOS from an earlier launch) are ignored instead of throwing the app back to Home.
   const TITLES = { home: 'Home', demo: 'Proforma', apais: 'Anxiety scale', intro: 'Instructions', task: 'Questions', review: 'Summary', settings: 'Settings' };
-  let stack = [{ name: 'home' }];
-  const scrollPos = {};
-  const keyOf = v => v.name + (v.pid ? ':' + v.pid : '');
-  const sameView = (x, y) => x.name === y.name && (x.pid || null) === (y.pid || null);
+  const SID = Math.random().toString(36).slice(2);
+  let stack = [{ name: 'home', scrollY: 0 }];
+  const top = () => stack[stack.length - 1];
+  const samePage = (x, y) => x.name === y.name && (x.pid || null) === (y.pid || null);
   const sheetOpen = () => !!document.querySelector('.sheet-backdrop');
   function hist(fn) { try { fn(); } catch (e) { /* history unavailable */ } }
-  function show(v, y) { view = v; render({ keepScroll: false }); window.scrollTo(0, y || 0); }
+  function mirrorPush() { hist(() => history.pushState({ sid: SID, depth: stack.length - 1 }, '')); }
+  function mirrorReplace() { hist(() => history.replaceState({ sid: SID, depth: stack.length - 1 }, '')); }
+  function show(entry) { view = entry; render({ keepScroll: false }); window.scrollTo(0, entry.scrollY || 0); }
   function push(v) {
-    scrollPos[keyOf(view)] = window.scrollY;
-    const i = stack.findIndex(x => sameView(x, v)); if (i >= 0) stack.length = i;     // never build a loop
-    stack.push(v); if (stack.length > 20) stack.splice(1, stack.length - 20);
-    show(v, 0); hist(() => history.pushState({ depth: stack.length - 1 }, ''));
+    top().scrollY = window.scrollY;
+    const i = stack.findIndex(x => samePage(x, v)); if (i >= 0) stack.length = i;     // never build a loop
+    stack.push(Object.assign({ scrollY: 0 }, v)); if (stack.length > 20) stack.splice(1, stack.length - 20);
+    show(top()); mirrorPush();
   }
-  function replace(v) { stack[stack.length - 1] = v; show(v, 0); hist(() => history.replaceState({ depth: stack.length - 1 }, '')); }
+  function replace(v) { stack[stack.length - 1] = Object.assign({ scrollY: 0 }, v); show(top()); mirrorReplace(); }
   function popTo(depth) {
     depth = Math.max(0, Math.min(depth, stack.length - 1));
     if (depth === 0 && pendingReload) { location.reload(); return; }
-    stack.length = depth + 1; show(stack[depth], scrollPos[keyOf(stack[depth])] || 0);
+    stack.length = depth + 1; show(top());
   }
+  // Back never traverses browser history itself (that is asynchronous and can be cancelled by a following push);
+  // it pops the stack and re-labels the current history entry. So every popstate we receive is user-initiated.
   function back() {
     if (stack.length <= 1 || sheetOpen()) return false;
-    if (history.state && history.state.depth === stack.length - 1) history.back();   // popstate handler does the pop
-    else popTo(stack.length - 2);
+    popTo(stack.length - 2); mirrorReplace();
     return true;
   }
+  // Gesture back: on the questions, go to the previous question first; otherwise pop.
+  function gestureBack() { if (view.name === 'task' && view.i > 1) { replace({ name: 'task', pid: view.pid, i: view.i - 1 }); return true; } return back(); }
   function resetHome() {
     if (pendingReload) { location.reload(); return; }
-    scrollPos[keyOf(view)] = window.scrollY;
-    stack = [{ name: 'home' }]; show(stack[0], scrollPos.home || 0); hist(() => history.replaceState({ depth: 0 }, ''));
+    const home = stack[0]; top().scrollY = window.scrollY;
+    stack = [home]; show(home); mirrorReplace();
   }
   window.addEventListener('popstate', e => {
-    if (sheetOpen()) { hist(() => history.pushState({ depth: stack.length - 1 }, '')); return; }
-    const d = e.state && typeof e.state.depth === 'number' ? e.state.depth : 0;
-    if (d < stack.length - 1) popTo(d);
-    else if (d > stack.length - 1) hist(() => history.go(-(d - (stack.length - 1))));   // forward into nothing: undo
+    const st = e.state;
+    if (!st || st.sid !== SID) { mirrorReplace(); return; }           // foreign / stale entry (e.g. restored by iOS): ignore, re-tag
+    if (sheetOpen()) { mirrorPush(); return; }                          // keep the dialog; restore our depth without navigating
+    const cur = stack.length - 1;
+    if (st.depth <= cur) { if (cur > 0) popTo(Math.min(st.depth, cur - 1)); mirrorReplace(); }   // user went back
+    else mirrorReplace();                                               // forward into nothing: just re-tag
   });
-  // Label for the header's back button: the screen we return to ("Save & exit" when that is Home from a data screen).
   function backLabel() { const prev = stack[stack.length - 2]; if (!prev) return 'Home'; if (prev.name === 'home') return ['demo', 'apais', 'intro', 'task'].includes(view.name) ? 'Save & exit' : 'Home'; return TITLES[prev.name] || 'Back'; }
-  // Legacy helper used by a few call sites: treat as push.
   function go(v) { push(v); }
-  function goBack() { return back(); }
+  window.BWSNav = { get stack() { return stack.map(e => ({ ...e })); }, back, gestureBack };
 
   // ---------- edge-swipe back (home-screen mode; in Safari's browser mode the native gesture + popstate do this) ----------
   (function edgeSwipe() {
@@ -206,37 +213,44 @@
     const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
     if (isIOS && !standalone) return;   // Safari browser mode: leave the gesture to Safari
     const EDGE = 24, START = 10; let sw = null;
-    const app = () => $('#app');
+    const app = () => $('#app'); const dock = () => $('#dock');
     document.addEventListener('touchstart', e => {
-      if (e.touches.length !== 1 || stack.length <= 1 || sheetOpen()) { sw = null; return; }
+      if (e.touches.length !== 1 || (stack.length <= 1 && !(view.name === 'task' && view.i > 1)) || sheetOpen()) { sw = null; return; }
       const t = e.touches[0]; if (t.clientX > EDGE) { sw = null; return; }
       sw = { x: t.clientX, y: t.clientY, t0: Date.now(), active: false };
     }, { passive: true });
     document.addEventListener('touchmove', e => {
       if (!sw) return; const t = e.touches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
       if (!sw.active) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > START) { sw = null; return; } if (dx > START) { sw.active = true; document.body.classList.add('swiping'); } else return; }
-      const a = app(); a.style.transition = 'none'; a.style.transform = `translateX(${Math.max(0, dx)}px)`; a.style.opacity = String(1 - Math.min(0.35, dx / window.innerWidth));
+      for (const el of [app(), dock()]) { if (!el) continue; el.style.transition = 'none'; el.style.transform = `translateX(${Math.max(0, dx)}px)`; el.style.opacity = String(1 - Math.min(0.35, dx / window.innerWidth)); }
     }, { passive: true });
     const end = e => {
-      if (!sw) return; const a = app();
+      if (!sw) return; const els = [app(), dock()].filter(Boolean);
       if (!sw.active) { sw = null; return; }
       const t = (e.changedTouches && e.changedTouches[0]) || { clientX: sw.x }; const dx = t.clientX - sw.x, vel = dx / Math.max(1, Date.now() - sw.t0);
       document.body.classList.remove('swiping'); sw = null;
-      a.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
+      const reset = () => els.forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; });
+      els.forEach(el => { el.style.transition = 'transform .18s ease-out, opacity .18s ease-out'; });
       if (dx > window.innerWidth * 0.33 || (dx > 60 && vel > 0.6)) {   // long drag, or a real flick of at least 60px
-        a.style.transform = `translateX(${window.innerWidth}px)`; a.style.opacity = '0.5';
-        setTimeout(() => { a.style.transition = ''; a.style.transform = ''; a.style.opacity = ''; back(); }, 150);
-      } else { a.style.transform = ''; a.style.opacity = ''; setTimeout(() => { a.style.transition = ''; }, 200); }
+        els.forEach(el => { el.style.transform = `translateX(${window.innerWidth}px)`; el.style.opacity = '0.5'; });
+        setTimeout(() => { reset(); gestureBack(); }, 150);
+      } else { els.forEach(el => { el.style.transform = ''; el.style.opacity = ''; }); setTimeout(reset, 200); }
     };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
   })();
-  window.BWSGoBack = back;
+
+  // A click can be handled twice: the button's own onclick re-renders, then the event keeps bubbling to the
+  // delegated handler that render() has just installed for the new view. Ignore targets that are no longer in
+  // the document — they belong to the render we have already left.
+  function onClick(sel, fn) { const el = $(sel); if (!el) return; el.onclick = e => { if (!e.target.isConnected) return; return fn(e); }; }
+
   function render(opts) {
     const keep = !(opts && opts.keepScroll === false); const y = window.scrollY;
     document.body.classList.toggle('has-tasknav', view.name === 'task');
     const root = $('#app');
     const fn = VIEWS[view.name] || VIEWS.home;
-    root.innerHTML = fn(view);
+    root.onclick = null; root.innerHTML = fn(view);
+    const dock = $('#dock'); if (dock) { dock.onclick = null; dock.innerHTML = fn.dock_ ? fn.dock_(view) : ''; }
     if (fn.bind_) fn.bind_(view);
     if (keep) window.scrollTo(0, y);
     const sw = $('#storage-warning'); if (sw) { sw.textContent = storageWarning; sw.hidden = !storageWarning; }
@@ -282,7 +296,7 @@
 
   // Standard inner-screen navigation bar. `left` and `right` are {act, label} or null.
   function navBar(title, right) {
-    const left = stack.length > 1 ? `<button class="nav-btn nav-l" data-act="back">${icon('chevL')}${esc(backLabel())}</button>` : '<span class="nav-l"></span>';
+    const left = stack.length > 1 ? `<button class="nav-btn nav-l" data-act="back">${icon('chevL')}<span class="lbl">${esc(backLabel())}</span></button>` : '<span class="nav-l"></span>';
     const r = right && right.meta ? `<span class="nav-r nav-meta">${esc(right.meta)}</span>` : right ? `<button class="nav-btn nav-r" data-act="${right.act}">${esc(right.label)}</button>` : '<span class="nav-r"></span>';
     return `<header class="nav bar"><div class="nav-row">${left}<h1>${title}</h1>${r}</div></header>`;
   }
@@ -341,7 +355,7 @@
     <footer>v${APP_VERSION} · Data stays on this device until you export · <span id="online">${navigator.onLine ? 'Online' : 'Offline'}</span></footer>`;
   };
   VIEWS.home.bind_ = () => {
-    $('#app').onclick = e => {
+    onClick('#app', e => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const act = b.dataset.act;
       if (act === 'new') newParticipant();
@@ -352,7 +366,7 @@
       else if (act === 'import') $('#import-file').click();
       else if (act === 'settings') push({ name: 'settings' });
       else if (act === 'clear-search') { searchQ = ''; const i = $('#search'); i.value = ''; $('.search').classList.remove('has-q'); $('#plist-card').innerHTML = participantList(); i.focus(); }
-    };
+    });
     const si = $('#search');
     si.oninput = () => { searchQ = si.value; $('.search').classList.toggle('has-q', !!searchQ); $('#plist-card').innerHTML = participantList(); };
     si.onkeydown = e => { if (e.key === 'Escape') { si.value = ''; si.oninput(); } };
@@ -425,13 +439,13 @@
   };
   VIEWS.apais.bind_ = v => {
     const r = records[v.pid];
-    $('#app').onclick = e => {
+    onClick('#app', e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.q) { r.apais[b.dataset.q] = Number(b.dataset.v); touch(r); render(); }
       else if (b.dataset.act === 'back') back();
       else if (b.dataset.act === 'home') resetHome();
       else if (b.dataset.act === 'next') { if (isFinished(r)) { toast('Anxiety scale saved', null, 'ok'); if (!back()) resetHome(); } else push({ name: 'intro', pid: v.pid }); }
-    };
+    });
   };
 
   // ---- BWS INTRO (patient information wording, Hindi) ----
@@ -466,8 +480,11 @@
         <button type="button" class="choice worst ${t.worst === oid ? 'sel' : ''}" data-kind="worst" data-oid="${oid}" ${t.best === oid ? 'disabled' : ''} aria-label="Least important: ${esc(o.en)}">${icon('x')}</button>
       </div>`; }).join('')}
     </section>
-    <div class="task-spacer"></div>
-    <div class="task-nav"><div class="task-nav-in">
+    <div class="task-spacer"></div>`;
+  };
+  VIEWS.task.dock_ = v => {
+    const r = records[v.pid]; const t = r.tasks[v.i]; const n = Object.keys(r.tasks).length; const done = C.taskComplete(t);
+    return `<div class="task-nav"><div class="task-nav-in">
       <p class="hint">${done ? 'Both chosen. Tap Next.' : (!t.best ? 'Tap ✓ on the most important outcome.' : 'Now tap ✗ on the least important outcome.')}</p>
       <div class="row">
         <button class="btn btn-plain" data-act="prev" ${v.i === 1 ? 'disabled' : ''}>${icon('chevL')} पिछला</button>
@@ -477,7 +494,7 @@
   };
   VIEWS.task.bind_ = v => {
     const r = records[v.pid]; const t = r.tasks[v.i]; const n = Object.keys(r.tasks).length;
-    $('#app').onclick = async e => {
+    const taskClick = async e => {
       const b = e.target.closest('button'); if (!b || b.disabled) return;
       if (b.dataset.kind) {
         const oid = b.dataset.oid;
@@ -501,6 +518,7 @@
         }
       }
     };
+    onClick('#app', taskClick); onClick('#dock', taskClick);
   };
 
   // ---- REVIEW ----
@@ -545,7 +563,7 @@
   };
   VIEWS.review.bind_ = v => {
     const r = records[v.pid];
-    $('#app').onclick = async e => {
+    onClick('#app', async e => {
       const b = e.target.closest('button'); if (!b) return;
       const act = b.dataset.act;
       if (act === 'home') resetHome();
@@ -574,7 +592,7 @@
           { r.status = 'withdrawn'; await touch(r); render(); }
       }
       else if (act === 'reopen') { r.status = 'in_progress'; await touch(r); render(); }
-    };
+    });
   };
 
   // ---- SETTINGS ----
@@ -612,10 +630,10 @@
     </section>`;
   VIEWS.settings.bind_ = () => {
     const bb = $('[data-act="back"]'); if (bb) bb.onclick = () => back();
-    $('.seg').onclick = async e => {
+    onClick('.seg', async e => {
       const b = e.target.closest('[data-theme]'); if (!b) return;
       settings.theme = b.dataset.theme; applyTheme(settings.theme); await persist(); render();
-    };
+    });
     $('#settings-form').onsubmit = async e => {
       e.preventDefault(); const f = e.target;
       settings.interviewer = f.interviewer.value.trim();
@@ -644,7 +662,8 @@
     if (problems.length) { dialog({ title: 'Design file problem', message: esc(problems.slice(0, 3).join('; ')), tone: 'danger' }); }
     await loadAll();
     applyTheme(settings.theme);
-    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; history.replaceState({ depth: 0 }, ''); } catch (e) { /* ignore */ }
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) { /* ignore */ }
+    mirrorReplace();   // tag the current history entry with this launch's token
     render();
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });

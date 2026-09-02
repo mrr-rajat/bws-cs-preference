@@ -3,7 +3,9 @@ const { spawn } = require('child_process');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const url = process.argv[2];
 const port = 9333;
-const chrome = spawn(CHROME, ['--headless=new','--disable-gpu','--no-first-run','--no-sandbox','--user-data-dir=/tmp/bws-chrome-profile',`--remote-debugging-port=${port}`,'about:blank'], { stdio: 'ignore' });
+const PROFILE = '/tmp/bws-chrome-profile';
+try { require('fs').rmSync(PROFILE, { recursive: true, force: true }); } catch (e) {}   // fresh storage every run
+const chrome = spawn(CHROME, ['--headless=new','--disable-gpu','--no-first-run','--no-sandbox',`--user-data-dir=${PROFILE}`,`--remote-debugging-port=${port}`,'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   let ver; for (let i = 0; i < 50; i++) { try { ver = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json(); break; } catch (e) { await sleep(200); } }

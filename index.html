@@ -71,7 +71,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg);-webkit-text-size-adjust:100%;overscroll-behavior-x:none}
 body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-body)/1.45 var(--font);font-feature-settings:"tnum" 1;padding-bottom:calc(var(--s6) + env(safe-area-inset-bottom))}
-#app{max-width:760px;margin:0 auto;padding:0 var(--s4);will-change:transform}
+#app{max-width:760px;margin:0 auto;padding:0 var(--s4)}
 body.swiping{overflow:hidden;touch-action:pan-y}
 h1,h2,h3,p{margin:0}
 b,strong{font-weight:600}
@@ -90,7 +90,8 @@ svg.ic{width:1.2em;height:1.2em;flex:none;vertical-align:-0.25em;fill:none;strok
 .nav-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-height:var(--nav-h);gap:var(--s2)}
 .nav h1{font-size:var(--fs-body);font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(60vw,440px)}
 .nav .nav-l{justify-self:start} .nav .nav-r{justify-self:end}
-.nav-btn{display:inline-flex;align-items:center;gap:2px;color:var(--accent);font-size:var(--fs-body);min-height:44px;padding:0 var(--s1);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-btn{display:inline-flex;align-items:center;gap:2px;color:var(--accent);font-size:var(--fs-body);min-height:44px;padding:0 var(--s1);max-width:100%;min-width:0;white-space:nowrap;overflow:hidden}
+.nav-btn .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-btn svg.ic{width:1.05em;height:1.05em;stroke-width:2.6;margin-left:-4px}
 .nav-meta{font-size:var(--fs-sub);color:var(--text-3)}
 .nav-large .nav-row{grid-template-columns:1fr auto;min-height:auto;padding:var(--s3) 0 var(--s2)}
@@ -268,7 +269,7 @@ body.has-sheet{overflow:hidden}
 #toast.ok svg.ic{color:var(--success)} #toast.warn svg.ic{color:var(--warn)} #toast.danger svg.ic{color:var(--danger)}
 #toast .t-title{font-size:var(--fs-sub);font-weight:600;line-height:1.35}
 #toast .t-detail{font-size:var(--fs-caption);color:var(--text-2);line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
-.task-nav ~ #toast, body.has-tasknav #toast{bottom:calc(132px + env(safe-area-inset-bottom))}
+.body.has-tasknav #toast, body.has-tasknav #toast{bottom:calc(132px + env(safe-area-inset-bottom))}
 #toast[hidden]{display:none}
 @keyframes toastin{from{transform:translate(-50%,12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 #storage-warning{position:fixed;top:0;left:0;right:0;background:var(--danger);color:#fff;text-align:center;padding:8px;font-size:var(--fs-sub);font-weight:600;z-index:30}
@@ -291,6 +292,7 @@ body.has-sheet{overflow:hidden}
 <body>
 <div id="storage-warning" hidden></div>
 <div id="app"><p class="empty">Loading…</p></div>
+<div id="dock"></div>
 <div id="toast" hidden></div>
 <noscript><p style="padding:20px">This app needs JavaScript enabled in Safari (Settings › Safari › Advanced › JavaScript).</p></noscript>
 <script src="./design.js"></script>

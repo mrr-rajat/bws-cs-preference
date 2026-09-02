@@ -23,9 +23,9 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  for(const [tag,w,h] of sizes){
    await shot(`v2-home-${tag}`,w,h,Math.min(h,1000));
    await ev(`document.querySelector('[data-act="settings"]').click();'ok'`); await sleep(150); await shot(`v2-settings-${tag}`,w,h,Math.min(h,900));
-   await ev(`document.querySelector('[data-act="home"]').click();'ok'`); await sleep(150);
+   await ev(`(document.querySelector('[data-act="back"]')||document.querySelector('[data-act="home"]')).click();'ok'`); await sleep(150);
    await ev(`document.querySelector('.plist li[data-pid="1"]').click();'ok'`); await sleep(150); await shot(`v2-review-${tag}`,w,h,Math.min(h,1000));
-   await ev(`document.querySelector('[data-act="home"]').click();'ok'`); await sleep(150);
+   await ev(`(document.querySelector('[data-act="back"]')||document.querySelector('[data-act="home"]')).click();'ok'`); await sleep(150);
    await ev(`document.querySelector('[data-act="new"]').click();'ok'`); await sleep(150); await shot(`v2-proforma-${tag}`,w,h,Math.min(h,1000));
    await ev(`(async()=>{const vals={age:'28',admission_date:'2026-09-01',surgery_date:'2026-09-03',height_cm:'156',weight_kg:'68',indication_cs:'Previous CS',asa_grade:'II',education:'Graduate',occupation:'Homemaker',monthly_income_inr:'25000',parity:'1',live_issues:'1',previous_cs:'No',other_surgery:'No',administration_mode:'Interviewer-administered (Hindi)',interviewer:'Anshul',name:'Meena Kumari'};
      for(const [k,v] of Object.entries(vals)){const el=document.querySelector('[name="'+k+'"]'); if(!el) continue; el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); await new Promise(r=>setTimeout(r,15));}
@@ -38,9 +38,9 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
    await ev(`(async()=>{document.querySelector('[data-act="start"]').click(); await new Promise(r=>setTimeout(r,80)); document.querySelectorAll('.choice.best')[0].click(); await new Promise(r=>setTimeout(r,60)); return 'ok';})()`);
    await shot(`v2-task-${tag}`,w,h,Math.min(h,1000));
    if(tag==='ipad'){ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'dark'}]}); await sleep(150); await shot('v2-task-dark-ipad',w,h,Math.min(h,1000));
-     await ev(`document.querySelector('[data-act="home"]').click();'ok'`); await sleep(150); await shot('v2-home-dark-ipad',w,h,Math.min(h,1000));
+     await ev(`(document.querySelector('[data-act="back"]')||document.querySelector('[data-act="home"]')).click();'ok'`); await sleep(150); await shot('v2-home-dark-ipad',w,h,Math.min(h,1000));
      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-color-scheme',value:'light'}]}); }
-   else { await ev(`document.querySelector('[data-act="home"]').click();'ok'`); await sleep(150); }
+   else { await ev(`(document.querySelector('[data-act="back"]')||document.querySelector('[data-act="home"]')).click();'ok'`); await sleep(150); }
    // discard the demo participant for the next size
    await ev(`(async()=>{const recs=JSON.parse(localStorage.getItem('bws.records.v1')); delete recs[4]; localStorage.setItem('bws.records.v1',JSON.stringify(recs)); location.reload();})()`); await sleep(1000);
  }

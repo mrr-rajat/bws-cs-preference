@@ -127,11 +127,21 @@ The JSON backup file remains the complete raw copy; the CSV is derived from it.
 
 ## Navigation
 
-Screens are kept on a stack. Back (the top-left button, a swipe from the left edge, or the browser/hardware back action)
-returns to the screen you actually came from, and the button is labelled with that screen. Moving between the 12 questions
-replaces the current entry rather than stacking; the instructions screen is transient. Done / Back to Home clears the stack;
-finishing an interview resets it to Home → Summary. Editing a finished participant's proforma or anxiety scale ends with
-**Save**, which returns to the summary. Scroll position is restored on back and reset to top on forward moves.
+Every screen is a typed page entry on a stack: `home`, `demo` (proforma), `apais` (anxiety scale), `intro`, `task`
+(with the question number), `review` (summary), `settings`. Each entry carries its own scroll position. Home is the root
+and the stack never loops: pushing a page that is already on the stack unwinds to it.
+
+Back (the top-left button, a swipe from the left edge, or the browser/hardware back action) pops one entry and is
+labelled with the screen it returns to. On the questions, a left-edge swipe goes to the **previous question** first and
+only leaves the questions from question 1. Moving between the 12 questions replaces the current entry rather than
+stacking, and the instructions screen is transient. Done / Back to Home clears the stack; finishing an interview resets
+it to Home → Summary. Editing a finished participant's proforma or anxiety scale ends with **Save**, which returns to
+the summary. Scroll position is restored on back, reset to top on forward moves, and kept when a screen re-renders in
+place.
+
+The stack is the only source of truth. Browser history is a mirror tagged with a per-launch token, so entries iOS
+restores from an earlier launch are ignored instead of throwing the app back to Home. The pinned question bar lives in
+a `#dock` element outside the page so the swipe transform cannot detach it from the bottom of the screen.
 
 ## Appearance
 

@@ -40,12 +40,20 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   const shown=[...D().querySelectorAll('.choice.best')].map(b=>b.dataset.oid).join(',');
   log(shown==='O09,O11,O03,O05','task 1 option order matches CSV row 1: '+shown);
   log(D().querySelector('[data-act="back"]').textContent.includes('Anxiety scale'),'chain: back label on questions is Anxiety scale (instructions were transient)');
+  { const nav=D().querySelector('.task-nav'); const rc=nav.getBoundingClientRect(); const cs=W().getComputedStyle(nav);
+    log(cs.position==='fixed'&&Math.abs(rc.bottom-W().innerHeight)<2&&nav.closest('#dock')&&!nav.closest('#app'),'question nav is pinned to the viewport bottom, outside the page (bottom='+Math.round(rc.bottom)+' vh='+W().innerHeight+')'); }
   log(D().querySelector('[data-act="next"]').disabled,'Next disabled before choices');
   D().querySelectorAll('.choice.best')[0].click(); await sleep(40);
   log(D().querySelectorAll('.choice.worst')[0].disabled,'worst button of the chosen-best row is disabled');
   log(D().querySelector('[data-act="next"]').disabled,'Next still disabled with only best chosen');
+  const touchQ=(type,x,y)=>{const T=W().Touch, TE=W().TouchEvent; const tgt=D().body; const t=new T({identifier:1,target:tgt,clientX:x,clientY:y}); const init={bubbles:true,cancelable:true,touches:type==='touchend'?[]:[t],changedTouches:[t],targetTouches:type==='touchend'?[]:[t]}; D().dispatchEvent(new TE(type,init));};
   for(let i=1;i<=12;i++){
     await until(()=>D().querySelector('.bar h1').textContent.includes('सवाल '+i+' /'),'task '+i);
+    if(i===2){ touchQ('touchstart',6,400); touchQ('touchmove',40,402); touchQ('touchmove',200,405); touchQ('touchend',260,405);
+      await until(()=>D().querySelector('.bar h1').textContent.includes('सवाल 1 /'),'swipe to previous question',1500);
+      log(true,'edge swipe on question 2 goes to question 1 (not Home)');
+      { const st=W().BWSNav.stack; log(st.map(e=>e.name).join(' › ')==='home › demo › apais › task'&&st[3].i===1,'stack is Home › Proforma › Anxiety scale › Questions with one questions entry (i=1)'); }
+      D().querySelector('[data-act="next"]').click(); await until(()=>D().querySelector('.bar h1').textContent.includes('सवाल 2 /'),'back to task 2'); }
     const bests=D().querySelectorAll('.choice.best');
     if(!bests[0].classList.contains('sel')){bests[0].click(); await sleep(30);}
     D().querySelectorAll('.choice.worst')[3].click(); await sleep(30);
@@ -119,6 +127,7 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(D().querySelector('[data-act="back"]').textContent.includes('Summary')&&D().querySelector('[data-act="next"]').textContent.trim()==='Save','edit from summary: back label "Summary", primary is Save');
   D().querySelector('[data-act="back"]').click(); await until(()=>D().querySelector('[data-act="delete"]'),'back to summary');
   log(true,'back from anxiety scale returns to the summary');
+  { const st=W().BWSNav.stack; log(st.length===2&&st[1].name==='review','back pops exactly one page, no double handling (stack Home > Summary)'); }
   D().querySelector('[data-act="apais"]').click(); await until(()=>D().querySelector('.scale'),'apais again');
   D().querySelector('[data-act="next"]').click(); await until(()=>D().querySelector('[data-act="delete"]'),'save to summary');
   log(true,'Save from anxiety scale returns to the summary');
@@ -126,6 +135,10 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(D().querySelector('[data-act="back"]').textContent.includes('Summary'),'edit proforma from summary: back label "Summary"');
   W().history.back(); await until(()=>D().querySelector('[data-act="delete"]'),'history back to summary');
   log(true,'browser back from proforma returns to the summary (stack, not fixed map)');
+  W().dispatchEvent(new (W().PopStateEvent)('popstate',{state:null})); await sleep(80);
+  log(!!D().querySelector('[data-act="delete"]'),'popstate with no state (stale iOS history) is ignored');
+  W().dispatchEvent(new (W().PopStateEvent)('popstate',{state:{sid:'other',depth:0}})); await sleep(80);
+  log(!!D().querySelector('[data-act="delete"]'),'popstate from a previous launch (foreign token) is ignored');
   D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   // theme toggle in settings
   D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('.seg'),'settings');
@@ -162,6 +175,13 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   const resume=D().querySelector('.secondary.big');
   log(resume&&resume.textContent.includes('Resume ID 1')&&!resume.textContent.includes('('),'partial record shown as resumable: '+(resume?resume.textContent.replace(/\s+/g,' ').trim():'none'));
   log(D().body.textContent.includes('not backed up')&&!D().querySelector('[data-act="new"]').disabled,'partial record counted in banner, not yet blocking at 1/5');
+  // summary -> Continue interview -> back returns to the summary
+  D().querySelector('.plist li[data-pid="1"]').click(); await until(()=>D().querySelector('[data-act="continue"]'),'summary of partial');
+  D().querySelector('[data-act="continue"]').click(); await until(()=>D().querySelector('#demo-form'),'continue -> proforma');
+  log(D().querySelector('[data-act="back"]').textContent.includes('Summary'),'Continue interview: back label is Summary');
+  D().querySelector('[data-act="back"]').click(); await until(()=>D().querySelector('[data-act="continue"]'),'back to summary');
+  log(W().BWSNav.stack.length===2&&W().BWSNav.stack[1].name==='review','back from Continue interview returns to the summary (stack Home › Summary)');
+  D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   W().BWSApp.settings.exportLimit=1; D().querySelector('[data-act="settings"]').click(); await sleep(50); D().querySelector('[data-act="back"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   log(D().querySelector('[data-act="new"]').disabled,'block engages when pending count reaches the limit');
   log(true,'DONE');
