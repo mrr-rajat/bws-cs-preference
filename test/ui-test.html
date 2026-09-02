@@ -64,6 +64,16 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   await until(()=>D().querySelector('.plist li'),'home after reload');
   const li=D().querySelector('.plist li').textContent;
   log(li.includes('Test Patient')&&li.includes('(ID 1)')&&li.includes('Complete')&&li.includes('12/12'),'after reload participant listed as name (ID 1): '+li.replace(/\s+/g,' ').trim());
+  // search bar
+  const sq=D().querySelector('#search'); log(!!sq,'search field present');
+  setInput(sq,'test pat'); await sleep(60);
+  log(D().querySelectorAll('.plist li').length===1&&D().querySelector('.plist li mark')&&D().body.textContent.includes('1 match'),'search "test pat" -> 1 highlighted match with count');
+  setInput(sq,'zzzz'); await sleep(60);
+  log(!D().querySelector('.plist li')&&D().body.textContent.includes('No matches for'),'no-match state');
+  setInput(sq,'1'); await sleep(60);
+  log(D().querySelectorAll('.plist li').length===1&&D().querySelector('.plist li').dataset.pid==='1','numeric search by ID finds participant 1');
+  D().querySelector('[data-act="clear-search"]').click(); await sleep(60);
+  log(sq.value===''&&D().querySelectorAll('.plist li').length===1&&!D().body.textContent.includes('match ·'),'clear button restores full list');
   log(D().body.textContent.includes('not backed up'),'unexported banner shown');
   log(D().querySelector('[data-act="new"]').textContent.includes('ID 2'),'next id is 2');
   // export limit: create 2nd participant quickly -> blocked state check via settings default 2

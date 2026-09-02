@@ -286,6 +286,99 @@
   }
 
   const STUDY_SLUG = 'CS-Preference-BWS';
+  // ---------- search ----------
+  // Every token must match some field (AND). Per-token score = best field match × field weight.
+  // Match ladder: exact 100 > prefix 85 > word-prefix 70 > substring 55 > fuzzy (≤1 edit for 4+ chars, ≤2 for 7+) 40/30.
+  const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  function norm(s) {
+    return String(s === undefined || s === null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}\s./-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function dateForms(iso) {   // '2026-09-01' -> ['2026-09-01','01/09/2026','1/9/2026','01/09','1/9','1 sep','01 sep','sep 2026','1 sep 2026']
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); if (!m) return [];
+    const [_, y, mo, d] = m, mon = MONTHS[Number(mo) - 1], D = String(Number(d)), M = String(Number(mo));
+    return [`${y}-${mo}-${d}`, `${d}/${mo}/${y}`, `${D}/${M}/${y}`, `${d}/${mo}`, `${D}/${M}`, `${D} ${mon}`, `${d} ${mon}`, `${mon} ${y}`, `${D} ${mon} ${y}`, `${d}-${mo}-${y}`];
+  }
+  function editDistance(a, b, max) {   // Damerau-Levenshtein (optimal string alignment), early exit when > max
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      let rowMin = Infinity;
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+        rowMin = Math.min(rowMin, d[i][j]);
+      }
+      if (rowMin > max) return max + 1;
+    }
+    return d[a.length][b.length];
+  }
+  function matchScore(token, value) {   // both normalised; returns 0..100
+    if (!value) return 0;
+    if (value === token) return 100;
+    if (value.startsWith(token)) return 85;
+    const words = value.split(' ');
+    if (words.some(w => w.startsWith(token))) return 70;
+    if (value.includes(token)) return 55;
+    if (/\d/.test(token)) return 0;                        // no fuzzy matching for numbers or dates
+    const max = token.length >= 7 ? 2 : token.length >= 4 ? 1 : 0;
+    if (!max) return 0;
+    let best = max + 1;
+    for (const w of words) { if (w.length >= 3) best = Math.min(best, editDistance(token, w, max)); if (best === 1) break; }
+    return best <= max ? (best === 1 ? 40 : 30) : 0;
+  }
+  // Searchable fields for one record: [{label, value(display), n(normalised), w(weight)}]
+  function searchFields(rec, settings) {
+    const d = rec.demo || {}, s = apaisScores(rec.apais);
+    const f = [];
+    const add = (label, value, w, forms) => { if (value === undefined || value === null || String(value).trim() === '') return; f.push({ label, value: String(value), forms: (forms || [norm(value)]).filter(Boolean), w }); };
+    add('ID', rec.pid, 1.0, [String(rec.pid), 'id ' + rec.pid, '#' + rec.pid]);
+    if (settings && settings.recordName === false) { /* name hidden */ } else add('Name', d.name, 1.0);
+    add('Status', { in_progress: 'in progress partial', complete: 'complete', withdrawn: 'withdrawn incomplete' }[rec.status], 0.5);
+    add('Age', d.age, 0.8); add('Indication', d.indication_cs, 0.8); add('Co-morbidities', d.comorbidities, 0.8);
+    add('Previous CS event', d.previous_cs_event, 0.7); add('Other surgery', d.other_surgery_detail, 0.7);
+    add('Education', d.education, 0.6); add('Occupation', d.occupation, 0.6); add('ASA', d.asa_grade ? 'asa ' + d.asa_grade : '', 0.6, d.asa_grade ? [norm('asa ' + d.asa_grade), norm(d.asa_grade)] : null);
+    add('Previous CS', d.previous_cs === 'Yes' ? 'previous cs yes ' + (d.previous_cs_count || '') : d.previous_cs === 'No' ? 'previous cs no primigravida' : '', 0.5);
+    add('Height', d.height_cm, 0.5); add('Weight', d.weight_kg, 0.5); add('Income', d.monthly_income_inr, 0.5);
+    add('Parity', d.parity, 0.4); add('Live issues', d.live_issues, 0.4); add('Interviewer', d.interviewer, 0.5); add('Mode', d.administration_mode, 0.3);
+    add('Admission', d.admission_date, 0.6, dateForms(d.admission_date)); add('Surgery date', d.surgery_date, 0.6, dateForms(d.surgery_date));
+    add('Recorded', rec.updatedAt, 0.4, dateForms(rec.updatedAt));
+    if (s.anxiety !== null) add('APAIS anxiety', s.anxiety, 0.4, [String(s.anxiety), 'apais ' + s.anxiety, s.highAnxiety ? 'high anxiety' : 'low anxiety']);
+    return f;
+  }
+  function searchRecords(records, query, settings) {
+    const q = norm(query);
+    const list = Object.values(records);
+    if (!q) return list.sort((a, b) => b.pid - a.pid).map(r => ({ rec: r, score: 0, matches: [] }));
+    // date-like tokens stay whole ("3 sep" is joined below when both parts look like a date)
+    let tokens = q.split(' ');
+    const joined = [];
+    for (let i = 0; i < tokens.length; i++) {
+      if (i + 1 < tokens.length && /^\d{1,2}$/.test(tokens[i]) && MONTHS.includes(tokens[i + 1].slice(0, 3))) { joined.push(tokens[i] + ' ' + tokens[i + 1].slice(0, 3)); i++; }
+      else joined.push(tokens[i]);
+    }
+    tokens = joined;
+    const out = [];
+    for (const rec of list) {
+      const fields = searchFields(rec, settings);
+      let total = 0; const matches = [];
+      for (const tok of tokens) {
+        let best = 0, bestField = null;
+        for (const f of fields) {
+          for (const form of f.forms) {
+            const sc = matchScore(tok, form) * f.w;
+            if (sc > best) { best = sc; bestField = f; }
+          }
+        }
+        if (!best) { total = 0; break; }
+        total += best; if (bestField && !matches.includes(bestField)) matches.push(bestField);
+      }
+      if (total > 0) out.push({ rec, score: total, matches: matches.map(f => ({ label: f.label, value: f.value })) });
+    }
+    return out.sort((a, b) => b.score - a.score || (b.rec.updatedAt || '').localeCompare(a.rec.updatedAt || ''));
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
   // e.g. 2026-09-03_14-05-33 (local device time)
   function stamp(d) {
@@ -318,5 +411,5 @@
   return { APP_ID, DATA_VERSION, MAX_PID, OUTCOMES, OUTCOME_BY_ID, APAIS, APAIS_SCALE, DEMO_FIELDS,
     apaisScores, fieldVisible, validateDemo, newRecord, taskComplete, tasksDone, firstIncompleteTask, nextFreeId,
     needsExport, unexportedCount, isEmptyRecord, dropEmptyRecords, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide, buildCombined,
-    buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign };
+    buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign, norm, editDistance, matchScore, searchFields, searchRecords };
 });

@@ -161,6 +161,21 @@ svg.ic{width:1.2em;height:1.2em;flex:none;vertical-align:-0.25em;fill:none;strok
 .empty{padding:var(--s5) 0;text-align:center;color:var(--text-3);font-size:var(--fs-sub)}
 footer{text-align:center;padding:var(--s5) 0 0;font-size:var(--fs-caption);color:var(--text-3)}
 
+/* ---------- search ---------- */
+.search{position:relative;display:flex;align-items:center;margin:0 0 var(--s3)}
+.search > svg.ic{position:absolute;left:14px;width:20px;height:20px;color:var(--text-3);pointer-events:none}
+.search input{width:100%;min-height:50px;padding:0 44px 0 42px;font:inherit;font-size:var(--fs-body);color:var(--text);background:var(--surface);border:0;border-radius:var(--r-m);box-shadow:0 0 0 0.5px var(--hairline);appearance:none;-webkit-appearance:none}
+.search input::-webkit-search-cancel-button,.search input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+.search input:focus{box-shadow:0 0 0 0.5px var(--hairline),0 0 0 3px var(--focus)}
+.search input::placeholder{color:var(--text-3)}
+.search .clear{position:absolute;right:6px;width:40px;height:40px;display:none;align-items:center;justify-content:center;color:var(--text-3);border-radius:50%}
+.search.has-q .clear{display:inline-flex} .search .clear svg.ic{width:20px;height:20px}
+.search-count{padding:0 0 var(--s2)}
+.row-why{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:var(--fs-caption);color:var(--text-2)}
+.why-l{color:var(--text-3)} .why-l::after{content:':'}
+mark{background:var(--warn-tint);color:inherit;border-radius:3px;padding:0 1px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) mark{background:rgba(229,166,75,.28)}} :root[data-theme=dark] mark{background:rgba(229,166,75,.28)}
+
 /* ---------- forms ---------- */
 .field{display:block;padding:var(--s3) 0 0}
 .field > span{display:block;font-size:var(--fs-sub);font-weight:500;color:var(--text-2);margin-bottom:6px}

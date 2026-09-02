@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.3.2';
+  const APP_VERSION = '2.4.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -183,7 +183,9 @@
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
     moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>',
-    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.1"/>'
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.1"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+    clear: '<circle cx="12" cy="12" r="9" fill="currentColor" stroke="none"/><path d="M9 9l6 6M15 9l-6 6" stroke="var(--surface)" stroke-width="2.4"/>'
   };
   const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -209,6 +211,27 @@
   }
 
   // ---- HOME ----
+  let searchQ = '';
+  function highlight(text, q) {   // wrap query tokens (prefix/substring) in <mark>
+    const raw = String(text || ''); if (!q) return esc(raw);
+    const toks = C.norm(q).split(' ').filter(t => t.length >= 1 && !/^\d{1,2}\s\w+$/.test(t));
+    let out = esc(raw);
+    for (const t of toks) { if (!t) continue; const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&') + ')', 'ig'); out = out.replace(re, '<mark>$1</mark>'); }
+    return out;
+  }
+  function participantList() {
+    const results = C.searchRecords(records, searchQ, settings);
+    if (!Object.keys(records).length) return '<p class="empty">No participants yet. Tap “New participant” to begin.</p>';
+    if (!results.length) return `<p class="empty">No matches for “${esc(searchQ)}”.<br><span class="caption">Try a name, study ID, indication, age, income or a date like 03/09.</span></p>`;
+    return (searchQ ? `<p class="caption search-count">${results.length} match${results.length === 1 ? '' : 'es'} · best first</p>` : '') + '<ul class="plist">' + results.map(({ rec: r, matches }) => {
+      const name = (r.demo.name || '').trim();
+      const title = name ? `<b>${highlight(name, searchQ)}</b> <small>(ID ${highlight(r.pid, searchQ)})</small>` : `<b>ID ${highlight(r.pid, searchQ)}</b>`;
+      const why = matches.filter(m => m.label !== 'Name' && m.label !== 'ID').slice(0, 3).map(m => `<span class="why"><span class="why-l">${esc(m.label)}</span> ${highlight(m.label === 'Recorded' ? fmtDateTime(m.value) : m.value, searchQ)}</span>`).join('');
+      return `<li data-act="open" data-pid="${r.pid}">
+          <div class="row-main"><div class="row-title">${title}</div><div class="row-sub">${C.tasksDone(r)}/12 tasks · ${fmtDateTime(r.updatedAt)}</div>${why ? `<div class="row-why">${why}</div>` : ''}</div>
+          ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}${statusPill(r)}${icon('chevR', 'chev')}</li>`;
+    }).join('') + '</ul>';
+  }
   VIEWS.home = () => {
     if (C.dropEmptyRecords(records)) persist();   // an ID opened but never filled in is released again
     const list = Object.values(records).sort((a, b) => b.pid - a.pid);
@@ -235,12 +258,8 @@
     </div>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
     <div class="section-h"><h2>Participants</h2><span class="meta">${list.length} of 224 · ${complete} complete</span></div>
-    <section class="card">
-      ${list.length ? '<ul class="plist">' + list.map(r => `<li data-act="open" data-pid="${r.pid}">
-          <div class="row-main"><div class="row-title">${labelFor(r)}</div><div class="row-sub">${C.tasksDone(r)}/12 tasks · ${fmtDateTime(r.updatedAt)}</div></div>
-          ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}${statusPill(r)}${icon('chevR', 'chev')}</li>`).join('') + '</ul>'
-        : '<p class="empty">No participants yet. Tap “New participant” to begin.</p>'}
-    </section>
+    <div class="search ${searchQ ? 'has-q' : ''}">${icon('search')}<input id="search" type="search" placeholder="Search name, ID, indication, age, date…" value="${esc(searchQ)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search participants"><button class="clear" data-act="clear-search" aria-label="Clear search">${icon('clear')}</button></div>
+    <section class="card" id="plist-card">${participantList()}</section>
     <footer>v${APP_VERSION} · Data stays on this device until you export · <span id="online">${navigator.onLine ? 'Online' : 'Offline'}</span></footer>`;
   };
   VIEWS.home.bind_ = () => {
@@ -253,7 +272,11 @@
       else if (act === 'export') exportCSVs();
       else if (act === 'import') $('#import-file').click();
       else if (act === 'settings') go({ name: 'settings' });
+      else if (act === 'clear-search') { searchQ = ''; const i = $('#search'); i.value = ''; $('.search').classList.remove('has-q'); $('#plist-card').innerHTML = participantList(); i.focus(); }
     };
+    const si = $('#search');
+    si.oninput = () => { searchQ = si.value; $('.search').classList.toggle('has-q', !!searchQ); $('#plist-card').innerHTML = participantList(); };
+    si.onkeydown = e => { if (e.key === 'Escape') { si.value = ''; si.oninput(); } };
     $('#import-file').onchange = e => { if (e.target.files[0]) importBackup(e.target.files[0]); };
   };
   async function newParticipant() {

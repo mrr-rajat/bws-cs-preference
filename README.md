@@ -47,6 +47,15 @@ An interview can be interrupted at any point: every tap is saved, and **Save & e
 Home shows **Resume ID n (partial …)** for each unfinished participant; partial records are included in backups and exports with status `in_progress`.
 Withdrawn or converted-to-emergency patients: open the participant → Mark as withdrawn. Their data is kept and flagged.
 
+## Search
+
+The search field above the participant list filters and ranks as you type. Every word must match something in a record
+(so `sunita previous` finds Sunita with a previous CS). It searches name, study ID, indication, co-morbidities, previous-CS
+event, other surgery, education, occupation, interviewer and status, plus numbers (age, height, weight, income, parity,
+APAIS score) and dates in several forms (`03/09`, `3 sep`, `2026-09-03`). Exact matches rank above prefixes, prefixes
+above substrings, and one- or two-letter typos still match for words of 4+ letters. A bare number 1–224 puts that ID first.
+Each result shows which fields matched.
+
 ## Backups
 
 - **Save backup** writes one JSON file named `CS-Preference-BWS_backup_YYYY-MM-DD_HH-MM-SS_nNN.json` (device date and time, NN = participants) containing every participant so far.
