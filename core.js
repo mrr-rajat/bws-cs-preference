@@ -243,10 +243,16 @@
     return { records, settings: obj.settings || {}, exportedAt: obj.exportedAt };
   }
 
+  const STUDY_SLUG = 'CS-Preference-BWS';
   function pad(n) { return String(n).padStart(2, '0'); }
+  // e.g. 2026-09-03_14-05-33 (local device time)
   function stamp(d) {
     d = d || new Date();
-    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes());
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+  }
+  // e.g. CS-Preference-BWS_backup_2026-09-03_14-05-33_n12.json
+  function fileName(kind, ext, count, d) {
+    return STUDY_SLUG + '_' + kind + '_' + stamp(d) + (count === undefined ? '' : '_n' + count) + '.' + ext;
   }
 
   // Sanity check of the embedded design: 224 participants, 12 tasks each, 4 distinct options, all 12 task ids.
@@ -270,5 +276,5 @@
   return { APP_ID, DATA_VERSION, MAX_PID, OUTCOMES, OUTCOME_BY_ID, APAIS, APAIS_SCALE, DEMO_FIELDS,
     apaisScores, fieldVisible, validateDemo, newRecord, taskComplete, tasksDone, firstIncompleteTask, nextFreeId,
     needsExport, unexportedCount, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide,
-    buildBackup, parseBackup, stamp, validateDesign };
+    buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign };
 });

@@ -48,11 +48,11 @@ Withdrawn or converted-to-emergency patients: open the participant → Mark as w
 
 ## Backups
 
-- **Save backup** writes one JSON file (`bws-backup-YYYYMMDD-HHMM-nNN.json`) containing every participant so far.
+- **Save backup** writes one JSON file named `CS-Preference-BWS_backup_YYYY-MM-DD_HH-MM-SS_nNN.json` (device date and time, NN = participants) containing every participant so far.
   Choose *Save to Files* in the share sheet and pick **On My iPad**, or a USB stick plugged into the device.
   Each backup is a complete snapshot, so only the newest one matters.
 - The home screen shows how many completed participants are not yet backed up. By default the app **blocks new
-  participants when 2 are pending** (change in Settings; 0 disables the block).
+  participants when 1 is pending** (change in Settings; 0 disables the block).
 - **Import backup** restores from any backup file, for example after reinstalling. Newer records win on conflict.
 - Weekly: AirDrop or copy the latest backup to the study laptop, so two devices hold the data.
 - Internally the app writes every change to two separate stores (localStorage and IndexedDB) and repairs one from the other.
@@ -61,15 +61,15 @@ Withdrawn or converted-to-emergency patients: open the participant → Mark as w
 
 **Export CSVs** produces three files:
 
-- `bws-participants-*.csv` — one row per participant: study ID, status, proforma fields, APAIS items and scores, tasks completed, timing.
-- `bws-long-*.csv` — one row per alternative shown (participant × task × 4 outcomes) with `best`/`worst` indicators. This is the input for the conditional logit.
-- `bws-choices-*.csv` — one row per task: the 4 outcomes shown in position order and the chosen best and worst (audit trail).
+- `CS-Preference-BWS_participants_<date_time>_nNN.csv` — one row per participant: study ID, status, proforma fields, APAIS items and scores, tasks completed, timing.
+- `CS-Preference-BWS_bws-long_<date_time>_nNN.csv` — one row per alternative shown (participant × task × 4 outcomes) with `best`/`worst` indicators. This is the input for the conditional logit.
+- `CS-Preference-BWS_bws-choices_<date_time>_nNN.csv` — one row per task: the 4 outcomes shown in position order and the chosen best and worst (audit trail).
 
 Minimal R example for the best and worst choices as two conditional-logit strata per task:
 
 ```r
 library(dplyr); library(survival)
-long <- read.csv("bws-long-20260903-1030.csv") |> filter(status == "complete")
+long <- read.csv("CS-Preference-BWS_bws-long_2026-09-03_10-30-00_n224.csv") |> filter(status == "complete")
 best  <- long |> mutate(choice = best,  strata_id = paste(participant_id, presentation_order, "B"))
 worst <- long |> mutate(choice = worst, strata_id = paste(participant_id, presentation_order, "W"), sign = -1)
 d <- bind_rows(mutate(best, sign = 1), worst) |> mutate(outcome_id = relevel(factor(outcome_id), ref = "O12"))
@@ -77,7 +77,7 @@ m <- clogit(choice ~ outcome_id:sign - 1 + strata(strata_id), data = d)   # maxd
 summary(m)
 ```
 
-(Alternatively the `support.BWS` package can build the maxdiff design from `bws-choices-*.csv`.)
+(Alternatively the `support.BWS` package can build the maxdiff design from the `bws-choices` file.)
 
 ## Things to check before going live
 
@@ -89,6 +89,12 @@ summary(m)
    Mention this in the study file or replace them with sequences from your original R script.
 4. **Patient name.** Off by default (study ID only). Settings → "Record patient name" turns the field on if the committee wants it in the app.
 5. **Storage limit.** Each participant is about 5 KB; 224 participants is about 1 MB, far below any iOS limit.
+
+## Factory reset
+
+Settings → **Factory reset this device…** erases all participant records and restores default settings (interviewer
+*Anshul*, block at 1 un-backed-up participant, name field off). It asks for confirmation twice, the second time by typing
+`RESET`. Backup files already saved and the hosted app are not affected.
 
 ## Updating the app
 

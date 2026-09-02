@@ -64,7 +64,17 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(D().body.textContent.includes('not yet backed up'),'unexported banner shown');
   log(D().querySelector('[data-act="new"]').textContent.includes('ID 2'),'next id is 2');
   // export limit: create 2nd participant quickly -> blocked state check via settings default 2
-  log(W().BWSApp.settings.exportLimit===2,'default export limit 2');
+  log(W().BWSApp.settings.exportLimit===1&&W().BWSApp.settings.interviewer==='Anshul','defaults: export limit 1, interviewer Anshul');
+  log(D().querySelector('[data-act="new"]').disabled&&D().body.textContent.includes('blocked'),'new participant blocked with 1 un-backed-up participant');
+  // factory reset: cancelled confirm keeps data; RESET erases records and settings
+  D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('[data-act="wipe"]'),'settings');
+  W().confirm=()=>false; D().querySelector('[data-act="wipe"]').click(); await sleep(50);
+  log(Object.keys(W().BWSApp.records).length===1,'reset cancelled at first dialog keeps data');
+  W().confirm=()=>true; W().prompt=()=>'nope'; D().querySelector('[data-act="wipe"]').click(); await sleep(50);
+  log(Object.keys(W().BWSApp.records).length===1,'reset cancelled at typed confirmation keeps data');
+  W().prompt=()=>'RESET'; D().querySelector('[data-act="wipe"]').click(); await sleep(150);
+  log(Object.keys(W().BWSApp.records).length===0&&!D().querySelector('.plist li'),'factory reset erased all records');
+  log(!JSON.parse(W().localStorage.getItem('bws.records.v1')||'{}')[1],'localStorage cleared by reset');
   log(true,'DONE');
 }catch(e){log(false,'EXC '+e.message);log(true,'DONE');}})();
 </script></body>

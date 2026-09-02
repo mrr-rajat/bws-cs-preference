@@ -3,9 +3,9 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.1.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
-  const DEFAULT_SETTINGS = { recordName: false, exportLimit: 2, interviewer: '' };
+  const DEFAULT_SETTINGS = { recordName: false, exportLimit: 1, interviewer: 'Anshul' };
 
   let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS);
   let view = { name: 'home' };
@@ -82,17 +82,17 @@
     return persist();
   }
   async function saveBackup() {
-    const name = 'bws-backup-' + C.stamp() + '-n' + Object.keys(records).length + '.json';
+    const name = C.fileName('backup', 'json', Object.keys(records).length);
     const res = await deliverFiles([new File([C.buildBackup(records, settings)], name, { type: 'application/json' })]);
     if (res !== 'cancelled') { await markExported(); toast('Backup ' + res + ': ' + name); } else toast('Backup cancelled');
     render();
   }
   async function exportCSVs() {
-    const s = C.stamp();
+    const d = new Date(), n = Object.keys(records).length;
     const files = [
-      new File([C.buildParticipantsWide(records, settings)], 'bws-participants-' + s + '.csv', { type: 'text/csv' }),
-      new File([C.buildBwsLong(records)], 'bws-long-' + s + '.csv', { type: 'text/csv' }),
-      new File([C.buildBwsChoices(records)], 'bws-choices-' + s + '.csv', { type: 'text/csv' })
+      new File([C.buildParticipantsWide(records, settings)], C.fileName('participants', 'csv', n, d), { type: 'text/csv' }),
+      new File([C.buildBwsLong(records)], C.fileName('bws-long', 'csv', n, d), { type: 'text/csv' }),
+      new File([C.buildBwsChoices(records)], C.fileName('bws-choices', 'csv', n, d), { type: 'text/csv' })
     ];
     const res = await deliverFiles(files);
     if (res !== 'cancelled') { await markExported(); toast('CSV export ' + res + ' (3 files)'); } else toast('Export cancelled');
@@ -375,7 +375,11 @@
       <p class="small muted">Patient priorities for outcomes related to anaesthesia and perioperative care during elective caesarean delivery: a best-worst scaling study. MAMC / Lok Nayak Hospital.</p>
       <p class="small muted">App v${APP_VERSION} · design: 224 participants × 12 tasks × 4 outcomes (participants 1–200 from the approved randomisation file, 201–224 extended with the same method).</p>
       <p class="small muted">Storage: localStorage ${lsGet(LS_RECORDS) ? 'OK' : 'empty'} · IndexedDB ${db ? 'OK' : 'unavailable'} · ${Object.keys(records).length} participants on device.</p>
-      <button class="danger-link" data-act="wipe">Delete all data on this device…</button>
+    </section>
+    <section class="card">
+      <h2>Factory reset</h2>
+      <p class="small muted">Erases every participant record and restores default settings on this device. The hosted app and any backup files you have saved are not affected. Save a backup first.</p>
+      <button class="danger-link" data-act="wipe">Factory reset this device…</button>
     </section>`;
   VIEWS.settings.bind_ = () => {
     $('[data-act="home"]').onclick = () => go({ name: 'home' });
@@ -387,9 +391,12 @@
       await persist(); toast('Settings saved'); go({ name: 'home' });
     };
     $('[data-act="wipe"]').onclick = async () => {
-      if (C.unexportedCount(records) && !confirm('There are participants not yet backed up. Continue anyway?')) return;
-      if (prompt('Type DELETE to erase all ' + Object.keys(records).length + ' participants from this device') !== 'DELETE') return;
-      records = {}; await persist(); toast('All data deleted'); go({ name: 'home' });
+      const n = Object.keys(records).length, un = C.unexportedCount(records);
+      if (!confirm('Factory reset\n\nThis will permanently erase ' + n + ' participant' + (n === 1 ? '' : 's') + ' and reset all settings on this device.' +
+        (un ? '\n\nWARNING: ' + un + ' participant' + (un === 1 ? ' is' : 's are') + ' NOT backed up yet.' : '') + '\n\nContinue?')) return;
+      if (prompt('Final confirmation: type RESET in capital letters to erase everything.') !== 'RESET') { toast('Reset cancelled'); return; }
+      records = {}; settings = Object.assign({}, DEFAULT_SETTINGS);
+      await persist(); toast('Device reset: all data erased, settings restored'); go({ name: 'home' });
     };
   };
 

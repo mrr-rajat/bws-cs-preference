@@ -70,4 +70,7 @@ assert.throws(() => C.parseBackup('{"app":"other"}'));
 // every participant 1..224 constructs
 for (let p = 1; p <= 224; p++) C.newRecord(p, DESIGN);
 assert.strictEqual(C.nextFreeId(Object.fromEntries(Array.from({length:224},(_,i)=>[i+1,{}]))), null);
+const fn = C.fileName('backup','json',12,new Date(2026,8,3,14,5,33));
+assert.strictEqual(fn, 'CS-Preference-BWS_backup_2026-09-03_14-05-33_n12.json', fn);
+assert.strictEqual(C.fileName('bws-long','csv',undefined,new Date(2026,0,9,9,7,1)), 'CS-Preference-BWS_bws-long_2026-01-09_09-07-01.csv');
 console.log('core.js: all tests passed');
