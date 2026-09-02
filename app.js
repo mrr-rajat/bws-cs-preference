@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.6.1';
+  const APP_VERSION = '2.7.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1', LS_DELETED = 'bws.deleted.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -156,31 +156,49 @@
   }
 
   // ---------- views ----------
-  // Where "back" leads from each screen: the same place as the top-left button on that screen.
-  const BACK = {
-    demo: () => ({ name: 'home' }), apais: v => ({ name: 'demo', pid: v.pid }), intro: v => ({ name: 'apais', pid: v.pid }),
-    task: () => ({ name: 'home' }), review: () => ({ name: 'home' }), settings: () => ({ name: 'home' })
-  };
-  let navFromHistory = false;
-  // Scroll memory: forward navigation starts at the top; going back restores where you were (iOS convention).
+  // ---------- navigation: a real stack. Home is the root; back pops; browser history mirrors the depth. ----------
+  const TITLES = { home: 'Home', demo: 'Proforma', apais: 'Anxiety scale', intro: 'Instructions', task: 'Questions', review: 'Summary', settings: 'Settings' };
+  let stack = [{ name: 'home' }];
   const scrollPos = {};
-  const keyOf = v => v.name + (v.pid ? ':' + v.pid : '') + (v.i ? ':' + v.i : '');
-  const isBackNav = (from, to) => { const f = BACK[from.name]; if (!f) return false; const b = f(from); return b.name === to.name && (b.pid || null) === (to.pid || null); };
-  function navigate(v, opts) {
+  const keyOf = v => v.name + (v.pid ? ':' + v.pid : '');
+  const sameView = (x, y) => x.name === y.name && (x.pid || null) === (y.pid || null);
+  const sheetOpen = () => !!document.querySelector('.sheet-backdrop');
+  function hist(fn) { try { fn(); } catch (e) { /* history unavailable */ } }
+  function show(v, y) { view = v; render({ keepScroll: false }); window.scrollTo(0, y || 0); }
+  function push(v) {
     scrollPos[keyOf(view)] = window.scrollY;
-    const back = (opts && opts.back) || isBackNav(view, v);
-    view = v; render({ keepScroll: false });
-    const y = back && scrollPos[keyOf(v)] !== undefined ? scrollPos[keyOf(v)] : 0;
-    window.scrollTo(0, y);
+    const i = stack.findIndex(x => sameView(x, v)); if (i >= 0) stack.length = i;     // never build a loop
+    stack.push(v); if (stack.length > 20) stack.splice(1, stack.length - 20);
+    show(v, 0); hist(() => history.pushState({ depth: stack.length - 1 }, ''));
   }
-  function go(v) {
-    if (pendingReload && v.name === 'home') { location.reload(); return; }
-    navigate(v);
-    // Keep browser history in step so the hardware/browser back action (and Safari's own swipe) works in browser mode.
-    if (!navFromHistory) { try { if (v.name === 'home') history.replaceState({ home: true }, ''); else history.pushState({ view: v.name }, ''); } catch (e) { /* ignore */ } }
+  function replace(v) { stack[stack.length - 1] = v; show(v, 0); hist(() => history.replaceState({ depth: stack.length - 1 }, '')); }
+  function popTo(depth) {
+    depth = Math.max(0, Math.min(depth, stack.length - 1));
+    if (depth === 0 && pendingReload) { location.reload(); return; }
+    stack.length = depth + 1; show(stack[depth], scrollPos[keyOf(stack[depth])] || 0);
   }
-  function goBack() { const f = BACK[view.name]; if (!f) return false; if (document.querySelector('.sheet-backdrop')) return false; go(f(view)); return true; }
-  window.addEventListener('popstate', () => { navFromHistory = true; try { if (view.name !== 'home' && !document.querySelector('.sheet-backdrop')) { const f = BACK[view.name]; navigate(f ? f(view) : { name: 'home' }, { back: true }); } } finally { navFromHistory = false; } });
+  function back() {
+    if (stack.length <= 1 || sheetOpen()) return false;
+    if (history.state && history.state.depth === stack.length - 1) history.back();   // popstate handler does the pop
+    else popTo(stack.length - 2);
+    return true;
+  }
+  function resetHome() {
+    if (pendingReload) { location.reload(); return; }
+    scrollPos[keyOf(view)] = window.scrollY;
+    stack = [{ name: 'home' }]; show(stack[0], scrollPos.home || 0); hist(() => history.replaceState({ depth: 0 }, ''));
+  }
+  window.addEventListener('popstate', e => {
+    if (sheetOpen()) { hist(() => history.pushState({ depth: stack.length - 1 }, '')); return; }
+    const d = e.state && typeof e.state.depth === 'number' ? e.state.depth : 0;
+    if (d < stack.length - 1) popTo(d);
+    else if (d > stack.length - 1) hist(() => history.go(-(d - (stack.length - 1))));   // forward into nothing: undo
+  });
+  // Label for the header's back button: the screen we return to ("Save & exit" when that is Home from a data screen).
+  function backLabel() { const prev = stack[stack.length - 2]; if (!prev) return 'Home'; if (prev.name === 'home') return ['demo', 'apais', 'intro', 'task'].includes(view.name) ? 'Save & exit' : 'Home'; return TITLES[prev.name] || 'Back'; }
+  // Legacy helper used by a few call sites: treat as push.
+  function go(v) { push(v); }
+  function goBack() { return back(); }
 
   // ---------- edge-swipe back (home-screen mode; in Safari's browser mode the native gesture + popstate do this) ----------
   (function edgeSwipe() {
@@ -190,7 +208,7 @@
     const EDGE = 24, START = 10; let sw = null;
     const app = () => $('#app');
     document.addEventListener('touchstart', e => {
-      if (e.touches.length !== 1 || view.name === 'home' || document.querySelector('.sheet-backdrop')) { sw = null; return; }
+      if (e.touches.length !== 1 || stack.length <= 1 || sheetOpen()) { sw = null; return; }
       const t = e.touches[0]; if (t.clientX > EDGE) { sw = null; return; }
       sw = { x: t.clientX, y: t.clientY, t0: Date.now(), active: false };
     }, { passive: true });
@@ -207,12 +225,12 @@
       a.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
       if (dx > window.innerWidth * 0.33 || (dx > 60 && vel > 0.6)) {   // long drag, or a real flick of at least 60px
         a.style.transform = `translateX(${window.innerWidth}px)`; a.style.opacity = '0.5';
-        setTimeout(() => { a.style.transition = ''; a.style.transform = ''; a.style.opacity = ''; goBack(); }, 150);
+        setTimeout(() => { a.style.transition = ''; a.style.transform = ''; a.style.opacity = ''; back(); }, 150);
       } else { a.style.transform = ''; a.style.opacity = ''; setTimeout(() => { a.style.transition = ''; }, 200); }
     };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
   })();
-  window.BWSGoBack = goBack;
+  window.BWSGoBack = back;
   function render(opts) {
     const keep = !(opts && opts.keepScroll === false); const y = window.scrollY;
     document.body.classList.toggle('has-tasknav', view.name === 'task');
@@ -263,11 +281,12 @@
   const fmtDateTime = iso => new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   // Standard inner-screen navigation bar. `left` and `right` are {act, label} or null.
-  function navBar(title, left, right) {
-    const btn = (b, side) => b ? `<button class="nav-btn nav-${side}" data-act="${b.act}">${side === 'l' ? icon('chevL') : ''}${esc(b.label)}</button>`
-      : `<span class="nav-${side}"></span>`;
-    return `<header class="nav bar"><div class="nav-row">${btn(left, 'l')}<h1>${title}</h1>${right && right.meta ? `<span class="nav-r nav-meta">${esc(right.meta)}</span>` : btn(right, 'r')}</div></header>`;
+  function navBar(title, right) {
+    const left = stack.length > 1 ? `<button class="nav-btn nav-l" data-act="back">${icon('chevL')}${esc(backLabel())}</button>` : '<span class="nav-l"></span>';
+    const r = right && right.meta ? `<span class="nav-r nav-meta">${esc(right.meta)}</span>` : right ? `<button class="nav-btn nav-r" data-act="${right.act}">${esc(right.label)}</button>` : '<span class="nav-r"></span>';
+    return `<header class="nav bar"><div class="nav-row">${left}<h1>${title}</h1>${r}</div></header>`;
   }
+  const isFinished = r => r.status !== 'in_progress';
 
   // ---- HOME ----
   let searchQ = '';
@@ -327,11 +346,11 @@
       const act = b.dataset.act;
       if (act === 'new') newParticipant();
       else if (act === 'open') openParticipant(Number(b.dataset.pid));
-      else if (act === 'summary') go({ name: 'review', pid: Number(b.dataset.pid) });
+      else if (act === 'summary') push({ name: 'review', pid: Number(b.dataset.pid) });
       else if (act === 'backup') saveBackup();
       else if (act === 'export') exportCSVs();
       else if (act === 'import') $('#import-file').click();
-      else if (act === 'settings') go({ name: 'settings' });
+      else if (act === 'settings') push({ name: 'settings' });
       else if (act === 'clear-search') { searchQ = ''; const i = $('#search'); i.value = ''; $('.search').classList.remove('has-q'); $('#plist-card').innerHTML = participantList(); i.focus(); }
     };
     const si = $('#search');
@@ -345,16 +364,16 @@
     if (settings.interviewer) rec.demo.interviewer = settings.interviewer;
     rec.demo.administration_mode = 'Interviewer-administered (Hindi)';
     records[pid] = rec; await persist();
-    go({ name: 'demo', pid });
+    push({ name: 'demo', pid });
   }
   function openParticipant(pid) {
     const r = records[pid]; if (!r) return;
-    if (r.status !== 'in_progress') return go({ name: 'review', pid });
+    if (r.status !== 'in_progress') return push({ name: 'review', pid });
     const demoOK = Object.keys(C.validateDemo(r.demo, settings)).length === 0;
-    if (!demoOK) return go({ name: 'demo', pid });
-    if (!C.apaisScores(r.apais).complete) return go({ name: 'apais', pid });
+    if (!demoOK) return push({ name: 'demo', pid });
+    if (!C.apaisScores(r.apais).complete) return push({ name: 'apais', pid });
     const t = C.firstIncompleteTask(r);
-    return t ? go({ name: 'task', pid, i: t }) : go({ name: 'review', pid });
+    return t ? push({ name: 'task', pid, i: t }) : push({ name: 'review', pid });
   }
 
   // ---- DEMOGRAPHICS ----
@@ -363,7 +382,7 @@
     const r = records[v.pid]; const errs = v.errors || {};
     const fields = C.DEMO_FIELDS.filter(f => C.fieldVisible(f, r.demo, settings));
     return `
-    ${navBar(`ID ${r.pid} · Case proforma`, { act: 'home', label: 'Save & exit' }, null)}
+    ${navBar(`ID ${r.pid} · Case proforma`, null)}
     <form id="demo-form" class="card" autocomplete="off" novalidate>
       <div class="form-grid">
       ${fields.map(f => `<label class="field ${errs[f.key] ? 'err' : ''} ${WIDE_FIELDS.has(f.key) ? 'span2' : ''}"><span>${esc(f.label)}${f.optional ? ' <em>· optional</em>' : ''}</span>
@@ -372,18 +391,19 @@
           : `<input name="${f.key}" type="${f.type}" ${f.type === 'number' ? 'inputmode="decimal" step="any"' : ''} value="${esc(r.demo[f.key])}" placeholder="${esc(f.placeholder || '')}">`}
         ${errs[f.key] ? `<small class="errmsg">${esc(errs[f.key])}</small>` : ''}</label>`).join('')}
       </div>
-      <button class="btn btn-primary btn-block btn-hero" type="submit">Continue to anxiety scale ${icon('chevR')}</button>
+      <button class="btn btn-primary btn-block btn-hero" type="submit">${isFinished(r) ? 'Save' : 'Continue to anxiety scale ' + icon('chevR')}</button>
     </form>`;
   };
   VIEWS.demo.bind_ = v => {
     const r = records[v.pid]; const form = $('#demo-form');
-    $('[data-act="home"]').onclick = () => go({ name: 'home' });
+    const bb = $('[data-act="back"]'); if (bb) bb.onclick = () => back();
     form.oninput = e => { r.demo[e.target.name] = e.target.value; touch(r); if (e.target.tagName === 'SELECT') render(); };
     form.onsubmit = e => {
       e.preventDefault();
       const errors = C.validateDemo(r.demo, settings);
       if (Object.keys(errors).length) { v.errors = errors; render(); toast('Some fields need attention', 'Complete the highlighted fields to continue.', 'warn'); const first = $('.field.err'); first && first.scrollIntoView({ block: 'center' }); return; }
-      go({ name: 'apais', pid: v.pid });
+      if (isFinished(r)) { toast('Proforma saved', null, 'ok'); if (!back()) resetHome(); return; }
+      push({ name: 'apais', pid: v.pid });
     };
   };
 
@@ -391,7 +411,7 @@
   VIEWS.apais = v => {
     const r = records[v.pid]; const s = C.apaisScores(r.apais);
     return `
-    ${navBar(`ID ${r.pid} · Anxiety scale`, { act: 'back', label: 'Proforma' }, { act: 'home', label: 'Save & exit' })}
+    ${navBar(`ID ${r.pid} · Anxiety scale`, isFinished(r) ? null : { act: 'home', label: 'Save & exit' })}
     <section class="card">
       <p class="hi instr">कृपया बताइए कि हर वाक्य आप पर कितना लागू होता है।</p>
       <p class="small muted">Amsterdam Preoperative Anxiety and Information Scale. 1 = not at all, 5 = extremely.</p>
@@ -400,7 +420,7 @@
         <div class="scale">${C.APAIS_SCALE.map(o => `<button type="button" class="opt ${Number(r.apais[q.n]) === o.v ? 'sel' : ''}" data-q="${q.n}" data-v="${o.v}"><b>${o.v}</b><span class="o-hi hi">${esc(o.hi)}</span><span class="o-en">${esc(o.en)}</span></button>`).join('')}</div>
       </div>`).join('')}
       <div class="score-line"><span>Anxiety score <b>${s.anxiety === null ? '—' : s.anxiety + '/20'}</b>${s.highAnxiety ? ' (high, ≥11)' : ''}</span><span>Information score <b>${s.information === null ? '—' : s.information + '/10'}</b></span></div>
-      <button class="btn btn-primary btn-block btn-hero" data-act="next" ${s.complete ? '' : 'disabled'}>Continue to choice tasks ${icon('chevR')}</button>
+      <button class="btn btn-primary btn-block btn-hero" data-act="next" ${s.complete ? '' : 'disabled'}>${isFinished(r) ? 'Save' : 'Continue to choice tasks ' + icon('chevR')}</button>
     </section>`;
   };
   VIEWS.apais.bind_ = v => {
@@ -408,15 +428,15 @@
     $('#app').onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.q) { r.apais[b.dataset.q] = Number(b.dataset.v); touch(r); render(); }
-      else if (b.dataset.act === 'back') go({ name: 'demo', pid: v.pid });
-      else if (b.dataset.act === 'home') go({ name: 'home' });
-      else if (b.dataset.act === 'next') go({ name: 'intro', pid: v.pid });
+      else if (b.dataset.act === 'back') back();
+      else if (b.dataset.act === 'home') resetHome();
+      else if (b.dataset.act === 'next') { if (isFinished(r)) { toast('Anxiety scale saved', null, 'ok'); if (!back()) resetHome(); } else push({ name: 'intro', pid: v.pid }); }
     };
   };
 
   // ---- BWS INTRO (patient information wording, Hindi) ----
   VIEWS.intro = v => `
-    ${navBar(`ID ${v.pid} · Instructions`, { act: 'back', label: 'Back' }, null)}
+    ${navBar(`ID ${v.pid} · Instructions`, null)}
     <section class="card">
       <p class="hi instr">अब आपको 12 सवाल दिखाए जाएँगे। हर सवाल में चार ऐसी बातें होंगी जो एनेस्थीसिया और ऑपरेशन के बाद ठीक होने के दौरान आपके लिए ज़रूरी हो सकती हैं।</p>
       <p class="hi instr">हर सवाल में पहले वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे ज़्यादा ज़रूरी</b> है, फिर वह <b>एक</b> बात चुनें जो आपके लिए <b>सबसे कम ज़रूरी</b> है।</p>
@@ -425,8 +445,8 @@
       <button class="btn btn-primary btn-block btn-hero" data-act="start">शुरू करें · Start ${icon('chevR')}</button>
     </section>`;
   VIEWS.intro.bind_ = v => {
-    $('[data-act="back"]').onclick = () => go({ name: 'apais', pid: v.pid });
-    $('[data-act="start"]').onclick = () => go({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(records[v.pid]) || 1 });
+    const bb = $('[data-act="back"]'); if (bb) bb.onclick = () => back();
+    $('[data-act="start"]').onclick = () => replace({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(records[v.pid]) || 1 });   // instructions are transient
   };
 
   // ---- BWS TASK ----
@@ -435,7 +455,7 @@
     if (!t.startedAt) { t.startedAt = nowISO(); touch(r); }
     const done = C.taskComplete(t);
     return `
-    ${navBar(`ID ${r.pid} · सवाल ${v.i} / ${n}`, { act: 'home', label: 'Save & exit' }, { meta: `Set ${t.taskId}` })}
+    ${navBar(`ID ${r.pid} · सवाल ${v.i} / ${n}`, { meta: `Set ${t.taskId}` })}
     <div class="stepper" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k + 1 < v.i || (k + 1 === v.i && done) ? 'done' : k + 1 === v.i ? 'cur' : ''}"></i>`).join('')}</div>
     <section class="card">
       <div class="thead"><span></span><span class="col col-best hi">सबसे ज़्यादा ज़रूरी<small>Most important</small></span><span class="col col-worst hi">सबसे कम ज़रूरी<small>Least important</small></span></div>
@@ -467,16 +487,17 @@
         await touch(r); render(); return;
       }
       const act = b.dataset.act;
-      if (act === 'home') go({ name: 'home' });
-      else if (act === 'prev') go({ name: 'task', pid: v.pid, i: v.i - 1 });
+      if (act === 'back') back();
+      else if (act === 'prev') replace({ name: 'task', pid: v.pid, i: v.i - 1 });
       else if (act === 'next') {
         if (!C.taskComplete(t)) return;
         t.completedAt = t.completedAt || nowISO();
-        if (v.i < n) { await touch(r); go({ name: 'task', pid: v.pid, i: v.i + 1 }); }
+        if (v.i < n) { await touch(r); replace({ name: 'task', pid: v.pid, i: v.i + 1 }); }
         else {
           const missing = C.firstIncompleteTask(r);
-          if (missing) { toast('Task ' + missing + ' is incomplete', 'Choose a most and a least important outcome.', 'warn'); go({ name: 'task', pid: v.pid, i: missing }); return; }
-          r.status = 'complete'; await touch(r); go({ name: 'review', pid: v.pid });
+          if (missing) { toast('Task ' + missing + ' is incomplete', 'Choose a most and a least important outcome.', 'warn'); replace({ name: 'task', pid: v.pid, i: missing }); return; }
+          r.status = 'complete'; await touch(r);
+          stack = [{ name: 'home' }]; push({ name: 'review', pid: v.pid });   // interview chain is finished: Home → Summary
         }
       }
     };
@@ -487,7 +508,7 @@
     const r = records[v.pid]; const s = C.apaisScores(r.apais); const un = C.unexportedCount(records);
     const n = Object.keys(r.tasks).length;
     return `
-    ${navBar(labelFor(r), { act: 'home', label: 'Home' }, null)}
+    ${navBar(labelFor(r), null)}
     <section class="card">
       <div class="section-h"><h2>${r.status === 'complete' ? 'Interview complete' : r.status === 'withdrawn' ? 'Withdrawn' : 'In progress'}</h2>${statusPill(r)}</div>
       <div class="stat-grid">
@@ -527,12 +548,13 @@
     $('#app').onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       const act = b.dataset.act;
-      if (act === 'home') go({ name: 'home' });
+      if (act === 'home') resetHome();
+      else if (act === 'back') back();
       else if (act === 'backup') saveBackup();
       else if (act === 'export') exportCSVs();
-      else if (act === 'demo') go({ name: 'demo', pid: v.pid });
-      else if (act === 'apais') go({ name: 'apais', pid: v.pid });
-      else if (act === 'tasks') go({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(r) || 1 });
+      else if (act === 'demo') push({ name: 'demo', pid: v.pid });
+      else if (act === 'apais') push({ name: 'apais', pid: v.pid });
+      else if (act === 'tasks') push({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(r) || 1 });
       else if (act === 'continue') openParticipant(v.pid);
       else if (act === 'delete') {
         const ok = await dialog({
@@ -545,7 +567,7 @@
         if (!ok) { toast('Deletion cancelled'); return; }
         deleted.push({ pid: r.pid, deletedAt: nowISO(), statusAtDeletion: r.status, tasksDone: C.tasksDone(r), createdAt: r.createdAt, wasBackedUp: !C.needsExport(r) });
         delete records[r.pid]; await persist();
-        toast('Participant deleted', `ID ${r.pid} is free again and will be used next.`, 'ok'); go({ name: 'home' });
+        toast('Participant deleted', `ID ${r.pid} is free again and will be used next.`, 'ok'); resetHome();
       }
       else if (act === 'withdraw') {
         if (await dialog({ title: 'Mark as withdrawn?', message: `${labelFor(r)} will be flagged as withdrawn or incomplete. Everything already entered is kept and included in exports.`, tone: 'warn', confirm: 'Mark as withdrawn', destructive: true }))
@@ -557,7 +579,7 @@
 
   // ---- SETTINGS ----
   VIEWS.settings = () => `
-    ${navBar('Settings', { act: 'home', label: 'Home' }, null)}
+    ${navBar('Settings', null)}
     <div class="section-h"><h2>Appearance</h2></div>
     <section class="card">
       <div class="seg" role="radiogroup" aria-label="Appearance">
@@ -589,7 +611,7 @@
       <button class="btn btn-danger-text btn-block" data-act="wipe">Factory reset this device…</button>
     </section>`;
   VIEWS.settings.bind_ = () => {
-    $('[data-act="home"]').onclick = () => go({ name: 'home' });
+    const bb = $('[data-act="back"]'); if (bb) bb.onclick = () => back();
     $('.seg').onclick = async e => {
       const b = e.target.closest('[data-theme]'); if (!b) return;
       settings.theme = b.dataset.theme; applyTheme(settings.theme); await persist(); render();
@@ -599,7 +621,7 @@
       settings.interviewer = f.interviewer.value.trim();
       settings.exportLimit = Math.max(0, Number(f.exportLimit.value) || 0);
       settings.recordName = f.recordName.checked;
-      await persist(); toast('Settings saved', null, 'ok'); go({ name: 'home' });
+      await persist(); toast('Settings saved', null, 'ok'); resetHome();
     };
     $('[data-act="wipe"]').onclick = async () => {
       const n = Object.keys(records).length, un = C.unexportedCount(records);
@@ -612,7 +634,7 @@
       });
       if (!ok) { toast('Reset cancelled'); return; }
       records = {}; deleted = []; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
-      await persist(); toast('Device reset', 'All data erased and settings restored.', 'ok'); go({ name: 'home' });
+      await persist(); toast('Device reset', 'All data erased and settings restored.', 'ok'); resetHome();
     };
   };
 
@@ -622,7 +644,7 @@
     if (problems.length) { dialog({ title: 'Design file problem', message: esc(problems.slice(0, 3).join('; ')), tone: 'danger' }); }
     await loadAll();
     applyTheme(settings.theme);
-    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; history.replaceState({ home: true }, ''); } catch (e) { /* ignore */ }
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; history.replaceState({ depth: 0 }, ''); } catch (e) { /* ignore */ }
     render();
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });
@@ -631,7 +653,7 @@
       let hadController = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadController) { hadController = true; return; }   // first install, nothing to swap
-        if (view.name === 'home' || view.name === 'settings') { location.reload(); return; }
+        if (stack.length === 1 || view.name === 'settings') { location.reload(); return; }
         pendingReload = true; toast('Update ready', 'The app will refresh when you return to Home.');
       });
       navigator.serviceWorker.register('./sw.js').then(reg => { reg.update().catch(() => {}); }).catch(() => {});
