@@ -56,8 +56,8 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   const ls=JSON.parse(W().localStorage.getItem('bws.records.v1')); log(ls&&ls[1]&&ls[1].status==='complete','localStorage copy present');
   const idbOK=await new Promise(res=>{const rq=W().indexedDB.open('bws-db',1);rq.onsuccess=()=>{const g=rq.result.transaction('kv').objectStore('kv').get('records');g.onsuccess=()=>res(!!(g.result&&g.result[1]&&g.result[1].status==='complete'));g.onerror=()=>res(false);};rq.onerror=()=>res(false);});
   log(idbOK,'IndexedDB copy present');
-  const C=W().BWSCore; const csv=C.buildBwsLong(W().BWSApp.records).split('\r\n').filter(Boolean);
-  log(csv.length===49,'long CSV has 48 rows for one participant');
+  const C=W().BWSCore; const csv=C.buildCombined(W().BWSApp.records,W().BWSApp.settings).split('\r\n').filter(Boolean);
+  log(csv.length===49&&csv[0].includes(',name,')&&csv[1].includes('Test Patient'),'combined CSV has 48 rows incl. name for one participant');
   // reload iframe -> persistence
   f.src='../index.html?nosw=2'; await sleep(200);
   await until(()=>D().querySelector('.plist li'),'home after reload');

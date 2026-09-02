@@ -61,25 +61,38 @@ Withdrawn or converted-to-emergency patients: open the participant → Mark as w
 
 ## Export for analysis
 
-**Export CSVs** produces three files:
+**Export CSV** produces one file, `CS-Preference-BWS_data_<date_time>_nNN.csv`, in long format:
 
-- `CS-Preference-BWS_participants_<date_time>_nNN.csv` — one row per participant: study ID, status, proforma fields, APAIS items and scores, tasks completed, timing.
-- `CS-Preference-BWS_bws-long_<date_time>_nNN.csv` — one row per alternative shown (participant × task × 4 outcomes) with `best`/`worst` indicators. This is the input for the conditional logit.
-- `CS-Preference-BWS_bws-choices_<date_time>_nNN.csv` — one row per task: the 4 outcomes shown in position order and the chosen best and worst (audit trail).
+- One row per outcome shown, i.e. 48 rows per completed participant (12 tasks × 4 outcomes). A participant with no
+  completed task still gets one row with the task columns blank, so no proforma data is lost.
+- The participant columns (study ID, status, proforma fields, APAIS items and scores, timestamps) are repeated on every
+  row of that participant. The task columns are `presentation_order`, `task_id`, `position`, `outcome_id`, `outcome_en`,
+  `best`, `worst`, `task_started_at`, `task_completed_at`, `task_seconds`.
 
-Minimal R example for the best and worst choices as two conditional-logit strata per task:
+This is directly the shape a conditional logit needs, and everything else is a one-liner away:
 
 ```r
 library(dplyr); library(survival)
-long <- read.csv("CS-Preference-BWS_bws-long_2026-09-03_10-30-00_n224.csv") |> filter(status == "complete")
-best  <- long |> mutate(choice = best,  strata_id = paste(participant_id, presentation_order, "B"))
-worst <- long |> mutate(choice = worst, strata_id = paste(participant_id, presentation_order, "W"), sign = -1)
-d <- bind_rows(mutate(best, sign = 1), worst) |> mutate(outcome_id = relevel(factor(outcome_id), ref = "O12"))
-m <- clogit(choice ~ outcome_id:sign - 1 + strata(strata_id), data = d)   # maxdiff coding
+d <- read.csv("CS-Preference-BWS_data_2026-09-03_10-30-00_n224.csv")
+
+# one row per participant (proforma + APAIS)
+participants <- d |> distinct(participant_id, .keep_all = TRUE) |> select(participant_id:updated_at)
+
+# analysis set: completed participants only
+long <- d |> filter(status == "complete", !is.na(task_id))
+
+# maxdiff conditional logit: best and worst choices as separate strata per task
+best  <- long |> mutate(choice = best,  sign =  1, strata_id = paste(participant_id, presentation_order, "B"))
+worst <- long |> mutate(choice = worst, sign = -1, strata_id = paste(participant_id, presentation_order, "W"))
+m <- clogit(choice ~ outcome_id:sign - 1 + strata(strata_id),
+            data = bind_rows(best, worst) |> mutate(outcome_id = relevel(factor(outcome_id), ref = "O12")))
 summary(m)
+
+# best-minus-worst counts per outcome
+long |> group_by(outcome_id, outcome_en) |> summarise(B = sum(best), W = sum(worst), BW = B - W) |> arrange(-BW)
 ```
 
-(Alternatively the `support.BWS` package can build the maxdiff design from the `bws-choices` file.)
+The JSON backup file remains the complete raw copy; the CSV is derived from it.
 
 ## Things to check before going live
 

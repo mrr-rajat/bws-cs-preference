@@ -82,4 +82,14 @@ const q = C.newRecord(8, DESIGN); q.tasks[1].best = q.tasks[1].options[0]; asser
 const e = C.newRecord(9, DESIGN); const rs = {7: p, 8: q, 9: e};
 assert.strictEqual(C.dropEmptyRecords(rs), 1); assert.deepStrictEqual(Object.keys(rs).sort(), ['7','8']);
 p.exportedAt = '2099-01-01T00:00:00.000Z'; assert.strictEqual(C.needsExport(p), false);
+// combined single file
+const comb = C.buildCombined(records, settings).split('\r\n').filter(Boolean);
+assert.strictEqual(comb.length, 1 + 48, 'combined: 48 rows for one complete participant');
+assert.ok(comb[0].startsWith('participant_id,status,age,') && comb[0].endsWith(',presentation_order,task_id,position,outcome_id,outcome_en,best,worst,task_started_at,task_completed_at,task_seconds'), comb[0]);
+assert.ok(comb[1].startsWith('1,complete,28,2026-09-01,') && comb[1].includes(',1,12,1,O09,Physical safety of mother,1,0,'), comb[1]);
+const partial = C.newRecord(3, DESIGN); partial.demo = {age:'30', interviewer:'Anshul'};
+const comb2 = C.buildCombined({1: r1, 3: partial}, settings).split('\r\n').filter(Boolean);
+assert.strictEqual(comb2.length, 1 + 48 + 1, 'participant with no completed task keeps one row');
+assert.ok(comb2[49].startsWith('3,in_progress,30,') && comb2[49].endsWith(',,,,,,,,,,'), comb2[49]);
+assert.ok(C.buildCombined(records, {recordName:true}).startsWith('participant_id,status,name,'));
 console.log('core.js: all tests passed');

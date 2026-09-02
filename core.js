@@ -244,6 +244,32 @@
     return toCSV(header, rows);
   }
 
+  // Single analysis file: participant columns repeated on every row, one row per outcome shown
+  // (48 per completed participant). Participants with no completed task get one row with blank task columns.
+  function buildCombined(records, settings) {
+    const demoKeys = DEMO_FIELDS.filter(f => !(f.onlyIfNameEnabled && !(settings && settings.recordName))).map(f => f.key);
+    const header = ['participant_id', 'status', ...demoKeys, 'apais_1', 'apais_2', 'apais_3', 'apais_4', 'apais_5', 'apais_6',
+      'apais_anxiety', 'apais_information', 'apais_high_anxiety', 'tasks_completed', 'created_at', 'updated_at',
+      'presentation_order', 'task_id', 'position', 'outcome_id', 'outcome_en', 'best', 'worst', 'task_started_at', 'task_completed_at', 'task_seconds'];
+    const rows = [];
+    for (const r of sortedRecords(records)) {
+      const s = apaisScores(r.apais);
+      const head = [r.pid, r.status, ...demoKeys.map(k => r.demo[k] === undefined ? '' : r.demo[k]),
+        ...[1, 2, 3, 4, 5, 6].map(n => r.apais[n] || ''), s.anxiety === null ? '' : s.anxiety, s.information === null ? '' : s.information,
+        s.highAnxiety === null ? '' : (s.highAnxiety ? 1 : 0), tasksDone(r), r.createdAt, r.updatedAt];
+      let any = false;
+      const n = Object.keys(r.tasks).length;
+      for (let i = 1; i <= n; i++) {
+        const t = r.tasks[i]; if (!taskComplete(t)) continue;
+        any = true;
+        t.options.forEach((oid, p) => rows.push([...head, i, t.taskId, p + 1, oid, OUTCOME_BY_ID[oid] ? OUTCOME_BY_ID[oid].en : '',
+          oid === t.best ? 1 : 0, oid === t.worst ? 1 : 0, t.startedAt || '', t.completedAt || '', secondsBetween(t.startedAt, t.completedAt)]));
+      }
+      if (!any) rows.push([...head, '', '', '', '', '', '', '', '', '', '']);
+    }
+    return toCSV(header, rows);
+  }
+
   function buildBackup(records, settings, now) {
     return JSON.stringify({ app: APP_ID, dataVersion: DATA_VERSION, exportedAt: now || new Date().toISOString(), settings: settings || {}, records }, null, 0);
   }
@@ -291,6 +317,6 @@
 
   return { APP_ID, DATA_VERSION, MAX_PID, OUTCOMES, OUTCOME_BY_ID, APAIS, APAIS_SCALE, DEMO_FIELDS,
     apaisScores, fieldVisible, validateDemo, newRecord, taskComplete, tasksDone, firstIncompleteTask, nextFreeId,
-    needsExport, unexportedCount, isEmptyRecord, dropEmptyRecords, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide,
+    needsExport, unexportedCount, isEmptyRecord, dropEmptyRecords, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide, buildCombined,
     buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign };
 });

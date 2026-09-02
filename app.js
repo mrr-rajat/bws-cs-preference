@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.3.1';
+  const APP_VERSION = '1.4.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul' };
 
@@ -88,14 +88,9 @@
     render();
   }
   async function exportCSVs() {
-    const d = new Date(), n = Object.keys(records).length;
-    const files = [
-      new File([C.buildParticipantsWide(records, settings)], C.fileName('participants', 'csv', n, d), { type: 'text/csv' }),
-      new File([C.buildBwsLong(records)], C.fileName('bws-long', 'csv', n, d), { type: 'text/csv' }),
-      new File([C.buildBwsChoices(records)], C.fileName('bws-choices', 'csv', n, d), { type: 'text/csv' })
-    ];
-    const res = await deliverFiles(files);
-    if (res !== 'cancelled') { await markExported(); toast('CSV export ' + res + ' (3 files)'); } else toast('Export cancelled');
+    const name = C.fileName('data', 'csv', Object.keys(records).length);
+    const res = await deliverFiles([new File([C.buildCombined(records, settings)], name, { type: 'text/csv' })]);
+    if (res !== 'cancelled') { await markExported(); toast('CSV export ' + res + ': ' + name); } else toast('Export cancelled');
     render();
   }
   function importBackup(file) {
@@ -159,7 +154,7 @@
       ${inprog.map(r => `<button class="secondary big" data-act="open" data-pid="${r.pid}">Resume ${labelFor(r)} <small>· ${C.tasksDone(r)}/12 tasks · saved ${new Date(r.updatedAt).toLocaleTimeString()}</small></button>`).join('')}
       <div class="row3">
         <button data-act="backup">Save backup<br><small>1 file, full copy</small></button>
-        <button data-act="export">Export CSVs<br><small>3 files, for R</small></button>
+        <button data-act="export">Export CSV<br><small>1 file, for R / Excel</small></button>
         <button data-act="import">Import backup<br><small>restore</small></button>
       </div>
       <input type="file" id="import-file" accept=".json,application/json" hidden>
@@ -334,7 +329,7 @@
       ${C.needsExport(r) ? `<div class="banner banner-amber">Not backed up yet (${un} pending). <button data-act="backup">Save backup now</button></div>` : '<p class="muted small">Backed up ' + new Date(r.exportedAt).toLocaleString() + '</p>'}
       <div class="row3">
         <button data-act="backup">Save backup</button>
-        <button data-act="export">Export CSVs</button>
+        <button data-act="export">Export CSV</button>
         <button class="primary" data-act="home">Done · Home</button>
       </div>
     </section>
