@@ -3,12 +3,13 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.2.0';
+  const APP_VERSION = '2.2.1';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
   let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS);
   let view = { name: 'home' };
+  let pendingReload = false;
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const nowISO = () => new Date().toISOString();
@@ -127,7 +128,7 @@
   }
 
   // ---------- views ----------
-  function go(v) { view = v; render(); window.scrollTo(0, 0); }
+  function go(v) { if (pendingReload && v.name === 'home') { location.reload(); return; } view = v; render(); window.scrollTo(0, 0); }
   function render() {
     const root = $('#app');
     const fn = VIEWS[view.name] || VIEWS.home;
@@ -487,11 +488,14 @@
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });
     if ('serviceWorker' in navigator && location.protocol !== 'file:' && !/nosw/.test(location.search)) {
-      navigator.serviceWorker.register('./sw.js').then(reg => {
-        reg.addEventListener('updatefound', () => {
-          const w = reg.installing; w && w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) toast('App updated. Close and reopen to use the new version.'); });
-        });
-      }).catch(() => {});
+      // When a new version has taken over: reload immediately if idle on Home, otherwise wait for a safe moment.
+      let hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) { hadController = true; return; }   // first install, nothing to swap
+        if (view.name === 'home' || view.name === 'settings') { location.reload(); return; }
+        pendingReload = true; toast('App updated. It will refresh when you return to Home.');
+      });
+      navigator.serviceWorker.register('./sw.js').then(reg => { reg.update().catch(() => {}); }).catch(() => {});
     }
   }
   window.BWSApp = { boot, get records() { return records; }, get settings() { return settings; } };
