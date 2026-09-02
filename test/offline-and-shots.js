@@ -1,6 +1,6 @@
 const { spawn } = require('child_process'); const fs = require('fs');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; const port = 9334;
-const base = 'http://127.0.0.1:8765/';
+const base = process.argv[2] || 'http://127.0.0.1:8765/';
 const chrome = spawn(CHROME, ['--headless=new','--disable-gpu','--no-first-run','--no-sandbox','--user-data-dir=/tmp/bws-chrome-profile-b',`--remote-debugging-port=${port}`,'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 (async () => {

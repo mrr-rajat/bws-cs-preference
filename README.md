@@ -19,14 +19,13 @@ stores everything on the device, and exports CSVs ready for conditional logit in
 
 ## One-time installation on the iPad or iPhone
 
-The page has to be served over HTTPS once. Any free static host works. The hosted files contain only the
-questionnaire and the randomisation schedule, never patient data.
+The app is hosted with GitHub Pages from this repository (public; it contains only the questionnaire and the
+randomisation schedule, never patient data):
 
-1. Put the contents of this folder online. Easiest options:
-   - **Netlify Drop**: go to https://app.netlify.com/drop and drag the whole folder in. You get a URL immediately.
-   - **GitHub Pages**: create a repository, upload the files, enable Pages in Settings.
-   - **Cloudflare Pages**: same idea, drag-and-drop upload.
-2. On the device, open the URL in **Safari** (not Chrome), with internet available.
+**https://mrr-rajat.github.io/bws-cs-preference/**
+
+1. Every push to `main` redeploys the site automatically within a minute or two.
+2. On the device, open the URL above in **Safari** (not Chrome), with internet available.
 3. Tap Share → **Add to Home Screen** → Add.
 4. Open the app from the home screen icon once while still online so it finishes caching.
 5. Turn off Wi-Fi and open it again to confirm it works offline.
