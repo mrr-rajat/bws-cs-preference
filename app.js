@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.4.1';
+  const APP_VERSION = '2.4.2';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
