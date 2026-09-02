@@ -84,11 +84,16 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(!D().querySelector('[data-act="new"]').disabled,'new participant not blocked with 1 of 5 un-backed-up');
   // factory reset: cancelled confirm keeps data; RESET erases records and settings
   D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('[data-act="wipe"]'),'settings');
-  W().confirm=()=>false; D().querySelector('[data-act="wipe"]').click(); await sleep(50);
-  log(Object.keys(W().BWSApp.records).length===1,'reset cancelled at first dialog keeps data');
-  W().confirm=()=>true; W().prompt=()=>'nope'; D().querySelector('[data-act="wipe"]').click(); await sleep(50);
-  log(Object.keys(W().BWSApp.records).length===1,'reset cancelled at typed confirmation keeps data');
-  W().prompt=()=>'RESET'; D().querySelector('[data-act="wipe"]').click(); await sleep(150);
+  D().querySelector('[data-act="wipe"]').click(); await until(()=>D().querySelector('.sheet'),'reset dialog');
+  log(D().querySelector('.sheet [data-dlg="ok"]').disabled&&D().querySelector('.sheet').textContent.includes('1 participant'),'reset dialog opens with confirm disabled and count');
+  D().querySelector('.sheet [data-dlg="cancel"]').click(); await sleep(50);
+  log(!D().querySelector('.sheet')&&Object.keys(W().BWSApp.records).length===1,'reset cancelled keeps data');
+  D().querySelector('[data-act="wipe"]').click(); await until(()=>D().querySelector('.sheet'),'reset dialog 2');
+  setInput(D().querySelector('#dlg-in'),'nope'); await sleep(30);
+  log(D().querySelector('.sheet [data-dlg="ok"]').disabled,'wrong word keeps confirm disabled');
+  setInput(D().querySelector('#dlg-in'),'reset'); await sleep(30);
+  log(!D().querySelector('.sheet [data-dlg="ok"]').disabled,'typed RESET (any case) enables confirm');
+  D().querySelector('.sheet [data-dlg="ok"]').click(); await sleep(200);
   log(Object.keys(W().BWSApp.records).length===0&&!D().querySelector('.plist li'),'factory reset erased all records');
   log(!JSON.parse(W().localStorage.getItem('bws.records.v1')||'{}')[1],'localStorage cleared by reset');
   // after reset: an untouched new form is discarded when leaving; a partial one is kept and blocks the next

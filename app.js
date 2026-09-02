@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.2.1';
+  const APP_VERSION = '2.3.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -117,7 +117,7 @@
         await persist();
         toast('Imported ' + Object.keys(imp).length + ' participants (' + (Object.keys(records).length - before) + ' new)');
         render();
-      } catch (e) { alert('Import failed: ' + e.message); }
+      } catch (e) { dialog({ title: 'Import failed', message: esc(e.message), tone: 'danger' }); }
     };
     rd.readAsText(file);
   }
@@ -125,6 +125,30 @@
   // ---------- tiny toast ----------
   function toast(msg) {
     const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3500);
+  }
+
+  // ---------- in-app alert: resolves true (confirmed) or false (cancelled) ----------
+  // opts: { title, message (HTML), tone: 'danger'|'warn'|'info', confirm, cancel, destructive, typed }  typed = word the user must type
+  function dialog(opts) {
+    return new Promise(resolve => {
+      const back = document.createElement('div'); back.className = 'sheet-backdrop';
+      const iconName = opts.tone === 'danger' ? 'warn' : opts.tone === 'warn' ? 'warn' : 'ok';
+      back.innerHTML = `<div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t">
+        <div class="sheet-icon ${opts.tone || 'info'}">${icon(iconName)}</div>
+        <h2 id="dlg-t">${esc(opts.title)}</h2>
+        ${opts.message ? `<p>${opts.message}</p>` : ''}
+        ${opts.typed ? `<label class="field"><span>Type <b>${esc(opts.typed)}</b> to confirm</span><input id="dlg-in" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text"></label>` : ''}
+        <div class="actions">
+          ${opts.confirm ? `<button class="btn btn-block ${opts.destructive ? 'btn-destructive' : 'btn-primary'}" data-dlg="ok" ${opts.typed ? 'disabled' : ''}>${esc(opts.confirm)}</button>` : ''}
+          <button class="btn btn-block btn-plain" data-dlg="cancel">${esc(opts.cancel || (opts.confirm ? 'Cancel' : 'OK'))}</button>
+        </div></div>`;
+      const close = val => { back.remove(); document.body.classList.remove('has-sheet'); resolve(val); };
+      back.onclick = e => { const b = e.target.closest('[data-dlg]'); if (b) close(b.dataset.dlg === 'ok'); else if (e.target === back && !opts.typed) close(false); };
+      document.body.appendChild(back); document.body.classList.add('has-sheet');
+      const inp = back.querySelector('#dlg-in');
+      if (inp) { inp.oninput = () => { back.querySelector('[data-dlg="ok"]').disabled = inp.value.trim().toUpperCase() !== opts.typed.toUpperCase(); }; setTimeout(() => inp.focus(), 50); }
+      else setTimeout(() => { const f = back.querySelector('[data-dlg="cancel"]'); f && f.focus(); }, 50);
+    });
   }
 
   // ---------- views ----------
@@ -417,7 +441,10 @@
       else if (act === 'demo') go({ name: 'demo', pid: v.pid });
       else if (act === 'apais') go({ name: 'apais', pid: v.pid });
       else if (act === 'tasks') go({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(r) || 1 });
-      else if (act === 'withdraw') { if (confirm('Mark participant ' + r.pid + ' as withdrawn/incomplete? Data already entered is kept.')) { r.status = 'withdrawn'; await touch(r); render(); } }
+      else if (act === 'withdraw') {
+        if (await dialog({ title: 'Mark as withdrawn?', message: `${labelFor(r)} will be flagged as withdrawn or incomplete. Everything already entered is kept and included in exports.`, tone: 'warn', confirm: 'Mark as withdrawn', destructive: true }))
+          { r.status = 'withdrawn'; await touch(r); render(); }
+      }
       else if (act === 'reopen') { r.status = 'in_progress'; await touch(r); render(); }
     };
   };
@@ -470,9 +497,14 @@
     };
     $('[data-act="wipe"]').onclick = async () => {
       const n = Object.keys(records).length, un = C.unexportedCount(records);
-      if (!confirm('Factory reset\n\nThis will permanently erase ' + n + ' participant' + (n === 1 ? '' : 's') + ' and reset all settings on this device.' +
-        (un ? '\n\nWARNING: ' + un + ' participant' + (un === 1 ? ' is' : 's are') + ' NOT backed up yet.' : '') + '\n\nContinue?')) return;
-      if (prompt('Final confirmation: type RESET in capital letters to erase everything.') !== 'RESET') { toast('Reset cancelled'); return; }
+      const ok = await dialog({
+        title: 'Factory reset this device?',
+        message: `This permanently erases <b>${n} participant${n === 1 ? '' : 's'}</b> and restores default settings.` +
+          (un ? `<br><br><b>${un} participant${un === 1 ? ' is' : 's are'} not backed up.</b> Save a backup first if you need this data.` : '') +
+          '<br><br>Backup files already saved and the hosted app are not affected.',
+        tone: 'danger', confirm: 'Erase everything', destructive: true, typed: 'RESET'
+      });
+      if (!ok) { toast('Reset cancelled'); return; }
       records = {}; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
       await persist(); toast('Device reset: all data erased, settings restored'); go({ name: 'home' });
     };
@@ -481,7 +513,7 @@
   // ---------- boot ----------
   async function boot() {
     const problems = C.validateDesign(DESIGN, BLOCKS);
-    if (problems.length) { alert('Design file problem: ' + problems.slice(0, 3).join('; ')); }
+    if (problems.length) { dialog({ title: 'Design file problem', message: esc(problems.slice(0, 3).join('; ')), tone: 'danger' }); }
     await loadAll();
     applyTheme(settings.theme);
     render();

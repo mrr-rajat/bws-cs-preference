@@ -226,6 +226,21 @@ table.mini{width:100%;border-collapse:collapse;font-size:var(--fs-sub)}
 /* settings rows */
 .srow{display:flex;justify-content:space-between;gap:var(--s3);padding:var(--s3) 0;font-size:var(--fs-sub)} .srow + .srow{border-top:0.5px solid var(--hairline)} .srow span:last-child{color:var(--text-2);text-align:right}
 
+/* ---------- modal alert (HIG alert on iPad, sheet on iPhone) ---------- */
+.sheet-backdrop{position:fixed;inset:0;z-index:40;background:rgba(20,14,8,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:var(--s4);animation:fade .16s ease-out}
+.sheet{width:100%;max-width:380px;background:var(--surface);border-radius:var(--r-l);box-shadow:0 24px 60px rgba(0,0,0,.28),0 0 0 0.5px var(--hairline);padding:var(--s5) var(--s4) var(--s4);animation:pop .18s cubic-bezier(.2,.8,.2,1)}
+.sheet-icon{display:flex;justify-content:center;margin-bottom:var(--s3)} .sheet-icon svg.ic{width:40px;height:40px;stroke-width:1.8}
+.sheet-icon.danger{color:var(--danger)} .sheet-icon.warn{color:var(--warn)} .sheet-icon.info{color:var(--accent)}
+.sheet h2{font-size:var(--fs-h);font-weight:700;text-align:center;letter-spacing:-0.2px}
+.sheet p{font-size:var(--fs-sub);color:var(--text-2);text-align:center;margin-top:var(--s2);line-height:1.45}
+.sheet p b{color:var(--text)}
+.sheet .field{padding-top:var(--s4)} .sheet .field input{text-align:center;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.sheet .actions{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s5)}
+.btn-destructive{background:var(--danger);color:var(--on-danger)}
+@keyframes fade{from{opacity:0}to{opacity:1}} @keyframes pop{from{transform:scale(.96) translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:480px){.sheet-backdrop{align-items:flex-end;padding:0}.sheet{max-width:none;border-radius:var(--r-l) var(--r-l) 0 0;padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom));animation:slide .22s cubic-bezier(.2,.8,.2,1)}@keyframes slide{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}}
+body.has-sheet{overflow:hidden}
+
 /* ---------- feedback ---------- */
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:12px 18px;border-radius:999px;font-size:var(--fs-sub);font-weight:500;z-index:20;max-width:90vw;box-shadow:0 8px 24px rgba(0,0,0,.18)}
 #storage-warning{position:fixed;top:0;left:0;right:0;background:var(--danger);color:#fff;text-align:center;padding:8px;font-size:var(--fs-sub);font-weight:600;z-index:30}
