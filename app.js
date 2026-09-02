@@ -3,9 +3,9 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.3.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
-  const DEFAULT_SETTINGS = { recordName: false, exportLimit: 1, interviewer: 'Anshul' };
+  const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul' };
 
   let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS);
   let view = { name: 'home' };
@@ -369,7 +369,7 @@
     <form id="settings-form" class="card">
       <label class="field"><span>Default interviewer initials</span><input name="interviewer" value="${esc(settings.interviewer)}"></label>
       <label class="field"><span>Block new participants when this many are not backed up (0 = never block)</span><input name="exportLimit" type="number" inputmode="numeric" min="0" max="50" value="${settings.exportLimit}"></label>
-      <label class="check"><input type="checkbox" name="recordName" ${settings.recordName ? 'checked' : ''}> Record patient name in the app <small class="muted">(off = study ID only; name stays on the paper consent form)</small></label>
+      <label class="check"><input type="checkbox" name="recordName" ${settings.recordName ? 'checked' : ''}> Record patient name in the app <small class="muted">(uncheck for study ID only, with the name kept on the paper consent form)</small></label>
       <button class="primary" type="submit">Save settings</button>
     </form>
     <section class="card">

@@ -20,7 +20,8 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   await sleep(60);
   log(!!D().querySelector('[name="previous_cs_count"]'),'conditional field previous_cs_count appears after previous_cs=Yes');
   setInput(D().querySelector('[name="previous_cs_count"]'),'1');
-  log(!D().querySelector('[name="name"]'),'name field hidden by default (study ID only)');
+  log(!!D().querySelector('[name="name"]'),'name field shown by default');
+  setInput(D().querySelector('[name="name"]'),'Test Patient');
   log(true,'fields filled; form present='+!!D().querySelector('#demo-form')+' view text='+D().querySelector('.bar h1').textContent);
   D().querySelector('#demo-form button[type=submit]').click();
   await until(()=>D().querySelector('.scale'),'apais');
@@ -65,8 +66,8 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(D().body.textContent.includes('not yet backed up'),'unexported banner shown');
   log(D().querySelector('[data-act="new"]').textContent.includes('ID 2'),'next id is 2');
   // export limit: create 2nd participant quickly -> blocked state check via settings default 2
-  log(W().BWSApp.settings.exportLimit===1&&W().BWSApp.settings.interviewer==='Anshul','defaults: export limit 1, interviewer Anshul');
-  log(D().querySelector('[data-act="new"]').disabled&&D().body.textContent.includes('blocked'),'new participant blocked with 1 un-backed-up participant');
+  log(W().BWSApp.settings.exportLimit===5&&W().BWSApp.settings.interviewer==='Anshul'&&W().BWSApp.settings.recordName===true,'defaults: export limit 5, interviewer Anshul, name on');
+  log(!D().querySelector('[data-act="new"]').disabled,'new participant not blocked with 1 of 5 un-backed-up');
   // factory reset: cancelled confirm keeps data; RESET erases records and settings
   D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('[data-act="wipe"]'),'settings');
   W().confirm=()=>false; D().querySelector('[data-act="wipe"]').click(); await sleep(50);
@@ -87,7 +88,9 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   const resume=D().querySelector('.secondary.big');
   log(resume&&resume.textContent.includes('Resume ID 1')&&resume.textContent.includes('partial'),'partial record shown as resumable: '+(resume?resume.textContent.replace(/\s+/g,' ').trim():'none'));
-  log(D().querySelector('[data-act="new"]').disabled&&D().body.textContent.includes('(complete or partial) not yet backed up'),'partial record blocks new participant until backup');
+  log(D().body.textContent.includes('(complete or partial) not yet backed up')&&!D().querySelector('[data-act="new"]').disabled,'partial record counted in banner, not yet blocking at 1/5');
+  W().BWSApp.settings.exportLimit=1; D().querySelector('[data-act="settings"]').click(); await sleep(50); D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
+  log(D().querySelector('[data-act="new"]').disabled,'block engages when pending count reaches the limit');
   log(true,'DONE');
 }catch(e){log(false,'EXC '+e.message);log(true,'DONE');}})();
 </script></body>
