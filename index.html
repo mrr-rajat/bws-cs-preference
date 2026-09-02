@@ -6,8 +6,8 @@
 <title>CS Preference BWS</title>
 <meta name="description" content="Offline data collection for the best-worst scaling study of patient priorities during elective caesarean delivery">
 <link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b0f14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5F0E6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17130F" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -20,11 +20,23 @@
    Follows Apple HIG sizing: 17pt body, 44pt minimum touch target, 8pt grid.
    ========================================================================== */
 :root{
-  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#f7f8fa; --hairline:rgba(60,60,67,.14); --hairline-strong:rgba(60,60,67,.24);
-  --text:#0b1220; --text-2:#5b6472; --text-3:#8a93a1;
-  --accent:#0b5fa5; --accent-ink:#ffffff; --accent-tint:#e6f0fa; --accent-tint-ink:#0b4f8a;
-  --success:#1f8a5b; --success-tint:#e7f5ee; --danger:#c63d3d; --danger-tint:#fbeaea; --warn:#b7791f; --warn-tint:#fff6e5; --warn-ink:#6b4400;
-  --focus:rgba(11,95,165,.35);
+  /* Warm palette from the traditional Japanese colour dictionary (nippon-iro). Light mode. */
+  --bg:#F5F0E6;            /* 象牙色 zōge-iro, ivory */
+  --surface:#FCFAF4;       /* 白練 shironeri, unbleached silk */
+  --surface-2:#F0EADC;     /* 練色 neri-iro, kneaded silk */
+  --hairline:rgba(67,61,60,.14); --hairline-strong:rgba(67,61,60,.26);
+  --text:#433D3C;          /* 檳榔子染 binrōjizome, betel-nut black */
+  --text-2:#726B66;        /* 煤竹 susutake, soot bamboo (lightened) */
+  --text-3:#9C9389;        /* 利休白茶 rikyūshiracha */
+  --accent:#9F563A;        /* 柿渋 kakishibu, persimmon tannin */
+  --accent-ink:#FFFCF7; --accent-tint:#F2E3DA; --accent-tint-ink:#7D3F27;
+  --success:#316745;       /* 千歳緑 chitosemidori, thousand-year pine */
+  --on-success:#FFFCF7; --success-tint:#E3EBDA;   /* 白緑 byakuroku */
+  --danger:#9E3D3F;        /* 蘇芳 suō, sappanwood */
+  --on-danger:#FFFCF7; --danger-tint:#F1DEDC;     /* 灰桜 haizakura */
+  --warn:#C39143;          /* 黄土 ōdo, yellow ochre */
+  --warn-tint:#F6ECD3; --warn-ink:#6B4F1C;        /* 鳥の子 torinoko / 黄枯茶 kigaracha */
+  --focus:rgba(159,86,58,.35);
   --r-s:10px; --r-m:14px; --r-l:20px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
   --fs-caption:13px; --fs-sub:15px; --fs-body:17px; --fs-h:20px; --fs-title:28px; --fs-display:22px;
@@ -32,20 +44,26 @@
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue","Noto Sans Devanagari","Noto Sans",sans-serif;
   --font-hi:-apple-system,"Kohinoor Devanagari","Devanagari Sangam MN","Noto Sans Devanagari",system-ui,sans-serif;
 }
-/* Dark tokens: follow the device unless Settings forces light/dark via data-theme on <html>. */
+/* Dark tokens: warm charcoal, lantern-lit. Follow the device unless Settings forces light/dark via data-theme on <html>. */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0b0f14; --surface:#151a21; --surface-2:#1b2129; --hairline:rgba(235,235,245,.14); --hairline-strong:rgba(235,235,245,.26);
-  --text:#f2f4f7; --text-2:#aab3bf; --text-3:#7d8794;
-  --accent:#5aa6ea; --accent-ink:#06131f; --accent-tint:#152a40; --accent-tint-ink:#9cc8f2;
-  --success:#4cc38a; --success-tint:#12301f; --danger:#f0736b; --danger-tint:#3a1a19; --warn:#e2a83b; --warn-tint:#3a2a0e; --warn-ink:#ffd58a;
-  --focus:rgba(90,166,234,.45);
+  --bg:#17130F; --surface:#221D17; --surface-2:#2C261F;          /* 黒橡 kurotsurubami family */
+  --hairline:rgba(243,237,226,.13); --hairline-strong:rgba(243,237,226,.26);
+  --text:#F3EDE2; --text-2:#BDB2A2; --text-3:#8C8174;             /* 生成り kinari / 亜麻 ama / 朽葉 kuchiba */
+  --accent:#DB8449; --accent-ink:#1E120A; --accent-tint:#3B2A1E; --accent-tint-ink:#F0C9A8;   /* 赤朽葉 akakuchiba */
+  --success:#68BE8D; --on-success:#0F2A1B; --success-tint:#1E3327;                              /* 若竹 wakatake */
+  --danger:#DD7C78; --on-danger:#2A0F0E; --danger-tint:#3C2321;                                 /* 薄紅 usubeni */
+  --warn:#E5A64B; --warn-tint:#3A2E16; --warn-ink:#F3D49A;                                     /* 山吹 yamabuki */
+  --focus:rgba(219,132,73,.45);
 }}
 :root[data-theme=dark]{
-  --bg:#0b0f14; --surface:#151a21; --surface-2:#1b2129; --hairline:rgba(235,235,245,.14); --hairline-strong:rgba(235,235,245,.26);
-  --text:#f2f4f7; --text-2:#aab3bf; --text-3:#7d8794;
-  --accent:#5aa6ea; --accent-ink:#06131f; --accent-tint:#152a40; --accent-tint-ink:#9cc8f2;
-  --success:#4cc38a; --success-tint:#12301f; --danger:#f0736b; --danger-tint:#3a1a19; --warn:#e2a83b; --warn-tint:#3a2a0e; --warn-ink:#ffd58a;
-  --focus:rgba(90,166,234,.45);
+  --bg:#17130F; --surface:#221D17; --surface-2:#2C261F;
+  --hairline:rgba(243,237,226,.13); --hairline-strong:rgba(243,237,226,.26);
+  --text:#F3EDE2; --text-2:#BDB2A2; --text-3:#8C8174;
+  --accent:#DB8449; --accent-ink:#1E120A; --accent-tint:#3B2A1E; --accent-tint-ink:#F0C9A8;
+  --success:#68BE8D; --on-success:#0F2A1B; --success-tint:#1E3327;
+  --danger:#DD7C78; --on-danger:#2A0F0E; --danger-tint:#3C2321;
+  --warn:#E5A64B; --warn-tint:#3A2E16; --warn-ink:#F3D49A;
+  --focus:rgba(219,132,73,.45);
 }
 
 /* ---------- base ---------- */
@@ -124,7 +142,7 @@ svg.ic{width:1.2em;height:1.2em;flex:none;vertical-align:-0.25em;fill:none;strok
 .callout .msg{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sub);font-weight:500}
 .callout .btn{min-height:38px;padding:0 var(--s3);font-size:var(--fs-sub);flex:none}
 .callout-warn{background:var(--warn-tint);color:var(--warn-ink)} .callout-warn .btn{background:var(--surface);color:var(--warn-ink);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
-.callout-danger{background:var(--danger-tint);color:var(--danger)} .callout-danger .btn{background:var(--danger);color:#fff}
+.callout-danger{background:var(--danger-tint);color:var(--danger)} .callout-danger .btn{background:var(--danger);color:var(--on-danger)}
 .callout-ok{background:var(--success-tint);color:var(--success)}
 
 /* ---------- lists ---------- */
@@ -184,10 +202,14 @@ footer{text-align:center;padding:var(--s5) 0 0;font-size:var(--fs-caption);color
 .choice svg.ic{width:28px;height:28px;stroke-width:2.8}
 .choice:active:not(:disabled){transform:scale(.96)}
 .choice:disabled{opacity:.25}
-.choice.best.sel{background:var(--success);color:#fff;box-shadow:none} .choice.worst.sel{background:var(--danger);color:#fff;box-shadow:none}
-.task-nav{display:grid;grid-template-columns:1fr 2fr;gap:var(--s2);margin-top:var(--s4)}
+.choice.best.sel{background:var(--success);color:var(--on-success);box-shadow:none} .choice.worst.sel{background:var(--danger);color:var(--on-danger);box-shadow:none}
+.task-nav{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:var(--s2) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom));
+  background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:0.5px solid var(--hairline)}
+.task-nav-in{max-width:760px;margin:0 auto}
+.task-nav .row{display:grid;grid-template-columns:1fr 2fr;gap:var(--s2)}
 .task-nav .btn{min-height:56px;font-size:18px}
-.hint{text-align:center;font-size:var(--fs-sub);color:var(--text-2);margin-top:var(--s3)}
+.hint{text-align:center;font-size:var(--fs-sub);color:var(--text-2);margin:0 0 var(--s2);min-height:22px}
+.task-spacer{height:128px}
 .instr{font-size:21px;line-height:1.55} .instr + .instr{margin-top:var(--s3)}
 
 /* ---------- review table ---------- */
@@ -214,11 +236,11 @@ table.mini{width:100%;border-collapse:collapse;font-size:var(--fs-sub)}
   #app{padding:0 var(--s3)} .nav{margin:0 calc(-1 * var(--s3));padding-left:var(--s3);padding-right:var(--s3)}
   .plist,.trow{margin-left:calc(-1 * var(--s3));margin-right:calc(-1 * var(--s3))} .plist li{padding-left:var(--s3);padding-right:var(--s3)} .trow{padding-left:var(--s3);padding-right:var(--s3)}
   .thead,.trow{grid-template-columns:1fr 72px 72px} .thead .col{font-size:12px} .thead .col small{font-size:11px} .choice{min-height:56px} .choice svg.ic{width:24px;height:24px}
-  .o-hi{font-size:19px} .instr{font-size:19px}
+  .o-hi{font-size:19px} .instr{font-size:19px} .task-nav{padding-left:var(--s3);padding-right:var(--s3)}
   .tiles{grid-template-columns:1fr 1fr} .tiles .tile:last-child{grid-column:span 2}
   .form-grid{grid-template-columns:1fr} .form-grid .span2{grid-column:auto}
   .stat b{font-size:20px}
-  .resume .r{display:none}
+  .resume .r{display:none} .callout .caption{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>

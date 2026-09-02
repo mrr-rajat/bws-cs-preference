@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.1.0';
+  const APP_VERSION = '2.2.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -19,7 +19,7 @@
     if (theme === 'light' || theme === 'dark') { root.dataset.theme = theme; root.style.colorScheme = theme; }
     else { delete root.dataset.theme; root.style.colorScheme = ''; }
     const dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#0b0f14' : '#f2f4f7'));
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#17130F' : '#F5F0E6'));
   }
   // Apply as early as possible (before the first render) to avoid a flash of the wrong theme.
   try { applyTheme((JSON.parse(localStorage.getItem('bws.settings.v1') || '{}')).theme || 'auto'); } catch (e) { /* ignore */ }
@@ -332,12 +332,15 @@
         <button type="button" class="choice best ${t.best === oid ? 'sel' : ''}" data-kind="best" data-oid="${oid}" ${t.worst === oid ? 'disabled' : ''} aria-label="Most important: ${esc(o.en)}">${icon('check')}</button>
         <button type="button" class="choice worst ${t.worst === oid ? 'sel' : ''}" data-kind="worst" data-oid="${oid}" ${t.best === oid ? 'disabled' : ''} aria-label="Least important: ${esc(o.en)}">${icon('x')}</button>
       </div>`; }).join('')}
-      <div class="task-nav">
+    </section>
+    <div class="task-spacer"></div>
+    <div class="task-nav"><div class="task-nav-in">
+      <p class="hint">${done ? 'Both chosen. Tap Next.' : (!t.best ? 'Tap ✓ on the most important outcome.' : 'Now tap ✗ on the least important outcome.')}</p>
+      <div class="row">
         <button class="btn btn-plain" data-act="prev" ${v.i === 1 ? 'disabled' : ''}>${icon('chevL')} पिछला</button>
         <button class="btn btn-primary" data-act="next" ${done ? '' : 'disabled'}>${v.i === n ? 'समाप्त · Finish' : 'अगला'} ${icon(v.i === n ? 'check' : 'chevR')}</button>
       </div>
-      <p class="hint">${done ? 'Both chosen. Tap Next.' : (!t.best ? 'Tap ✓ on the most important outcome.' : 'Now tap ✗ on the least important outcome.')}</p>
-    </section>`;
+    </div></div>`;
   };
   VIEWS.task.bind_ = v => {
     const r = records[v.pid]; const t = r.tasks[v.i]; const n = Object.keys(r.tasks).length;

@@ -110,6 +110,10 @@ The JSON backup file remains the complete raw copy; the CSV is derived from it.
 
 Settings → Appearance: **System** (follows the device), **Light**, or **Dark**. Applied immediately and remembered on the device.
 
+The palette uses traditional Japanese colours (nippon-iro): ivory 象牙色 and unbleached-silk 白練 surfaces, betel-nut 檳榔子染 text,
+persimmon-tannin 柿渋 as the accent, thousand-year-pine 千歳緑 for BEST and sappanwood 蘇芳 for WORST. Dark mode uses a warm
+charcoal with 赤朽葉, 若竹 and 薄紅 accents. All text/background pairs meet WCAG AA contrast.
+
 ## Factory reset
 
 Settings → **Factory reset this device…** erases all participant records and restores default settings (interviewer
