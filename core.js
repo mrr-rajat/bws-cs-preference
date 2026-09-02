@@ -270,8 +270,14 @@
     return toCSV(header, rows);
   }
 
-  function buildBackup(records, settings, now) {
-    return JSON.stringify({ app: APP_ID, dataVersion: DATA_VERSION, exportedAt: now || new Date().toISOString(), settings: settings || {}, records }, null, 0);
+  function buildBackup(records, settings, now, deleted) {
+    return JSON.stringify({ app: APP_ID, dataVersion: DATA_VERSION, exportedAt: now || new Date().toISOString(), settings: settings || {}, records, deleted: deleted || [] }, null, 0);
+  }
+  // Union of deletion-log entries, keyed by (pid, deletedAt).
+  function mergeDeleted(a, b) {
+    const seen = new Set(), out = [];
+    for (const e of [...(a || []), ...(b || [])]) { const k = e.pid + '@' + e.deletedAt; if (!e || seen.has(k)) continue; seen.add(k); out.push(e); }
+    return out.sort((x, y) => (x.deletedAt || '').localeCompare(y.deletedAt || ''));
   }
   function parseBackup(text) {
     const obj = JSON.parse(text);
@@ -282,7 +288,7 @@
       if (!r || typeof r.pid !== 'number' || !r.tasks) throw new Error('Corrupt record ' + k);
       records[r.pid] = r;
     }
-    return { records, settings: obj.settings || {}, exportedAt: obj.exportedAt };
+    return { records, settings: obj.settings || {}, exportedAt: obj.exportedAt, deleted: Array.isArray(obj.deleted) ? obj.deleted : [] };
   }
 
   const STUDY_SLUG = 'CS-Preference-BWS';
@@ -411,5 +417,5 @@
   return { APP_ID, DATA_VERSION, MAX_PID, OUTCOMES, OUTCOME_BY_ID, APAIS, APAIS_SCALE, DEMO_FIELDS,
     apaisScores, fieldVisible, validateDemo, newRecord, taskComplete, tasksDone, firstIncompleteTask, nextFreeId,
     needsExport, unexportedCount, isEmptyRecord, dropEmptyRecords, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide, buildCombined,
-    buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign, norm, editDistance, matchScore, searchFields, searchRecords };
+    buildBackup, parseBackup, mergeDeleted, stamp, fileName, STUDY_SLUG, validateDesign, norm, editDistance, matchScore, searchFields, searchRecords };
 });

@@ -3,11 +3,11 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.4.2';
-  const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
+  const APP_VERSION = '2.5.0';
+  const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1', LS_DELETED = 'bws.deleted.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
-  let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS);
+  let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS), deleted = [];
   let view = { name: 'home' };
   let pendingReload = false;
   const $ = sel => document.querySelector(sel);
@@ -62,8 +62,8 @@
 
   let storageWarning = '';
   async function persist() {
-    const okLS = lsSet(LS_RECORDS, records) && lsSet(LS_SETTINGS, settings);
-    const okDB = (await idbSet('records', records)) && (await idbSet('settings', settings));
+    const okLS = lsSet(LS_RECORDS, records) && lsSet(LS_SETTINGS, settings) && lsSet(LS_DELETED, deleted);
+    const okDB = (await idbSet('records', records)) && (await idbSet('settings', settings)) && (await idbSet('deleted', deleted));
     storageWarning = (!okLS && !okDB) ? 'Nothing could be saved. Export a backup immediately.' : (!okLS || !okDB) ? 'One of the two storage copies failed; the other is fine.' : '';
     const el = $('#storage-warning'); if (el) { el.textContent = storageWarning; el.hidden = !storageWarning; }
   }
@@ -72,6 +72,7 @@
     const a = lsGet(LS_RECORDS) || {}, b = (await idbGet('records')) || {};
     records = C.mergeRecords(a, b);
     settings = Object.assign({}, DEFAULT_SETTINGS, lsGet(LS_SETTINGS) || (await idbGet('settings')) || {});
+    deleted = C.mergeDeleted(lsGet(LS_DELETED) || [], (await idbGet('deleted')) || []);
     if (Object.keys(a).length !== Object.keys(records).length || Object.keys(b).length !== Object.keys(records).length) await persist();
   }
   function touch(rec) { rec.updatedAt = nowISO(); return persist(); }
@@ -96,7 +97,7 @@
   }
   async function saveBackup() {
     const name = C.fileName('backup', 'json', Object.keys(records).length);
-    const res = await deliverFiles([new File([C.buildBackup(records, settings)], name, { type: 'application/json' })]);
+    const res = await deliverFiles([new File([C.buildBackup(records, settings, null, deleted)], name, { type: 'application/json' })]);
     if (res !== 'cancelled') { await markExported(); toast('Backup saved', name, 'ok'); } else toast('Backup cancelled');
     render();
   }
@@ -111,9 +112,9 @@
     const rd = new FileReader();
     rd.onload = async () => {
       try {
-        const { records: imp } = C.parseBackup(rd.result);
+        const { records: imp, deleted: impDel } = C.parseBackup(rd.result);
         const before = Object.keys(records).length;
-        records = C.mergeRecords(records, imp);
+        records = C.mergeRecords(records, imp); deleted = C.mergeDeleted(deleted, impDel);
         await persist();
         toast('Backup imported', Object.keys(imp).length + ' participants in file · ' + (Object.keys(records).length - before) + ' new on this device', 'ok');
         render();
@@ -227,7 +228,7 @@
       const name = (r.demo.name || '').trim();
       const title = name ? `<b>${highlight(name, searchQ)}</b> <small>(ID ${highlight(r.pid, searchQ)})</small>` : `<b>ID ${highlight(r.pid, searchQ)}</b>`;
       const why = matches.filter(m => m.label !== 'Name' && m.label !== 'ID').slice(0, 3).map(m => `<span class="why"><span class="why-l">${esc(m.label)}</span> ${highlight(m.label === 'Recorded' ? fmtDateTime(m.value) : m.value, searchQ)}</span>`).join('');
-      return `<li data-act="open" data-pid="${r.pid}">
+      return `<li data-act="summary" data-pid="${r.pid}">
           <div class="row-main"><div class="row-title">${title}</div><div class="row-sub">${C.tasksDone(r)}/12 tasks · ${fmtDateTime(r.updatedAt)}</div>${why ? `<div class="row-why">${why}</div>` : ''}</div>
           ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}${statusPill(r)}${icon('chevR', 'chev')}</li>`;
     }).join('') + '</ul>';
@@ -268,6 +269,7 @@
       const act = b.dataset.act;
       if (act === 'new') newParticipant();
       else if (act === 'open') openParticipant(Number(b.dataset.pid));
+      else if (act === 'summary') go({ name: 'review', pid: Number(b.dataset.pid) });
       else if (act === 'backup') saveBackup();
       else if (act === 'export') exportCSVs();
       else if (act === 'import') $('#import-file').click();
@@ -438,10 +440,9 @@
       ${C.needsExport(r)
         ? `<div class="callout callout-warn">${icon('warn')}<span class="msg">Not backed up${un > 1 ? ` · ${un} pending` : ''}</span><button class="btn" data-act="backup">Save backup</button></div>`
         : `<div class="callout callout-ok">${icon('ok')}<span class="msg">Backed up ${fmtDateTime(r.exportedAt)}</span></div>`}
-      <div class="btn-row">
-        <button class="btn btn-plain" data-act="export">${icon('table')} Export CSV</button>
-        <button class="btn btn-primary" data-act="home">Done</button>
-      </div>
+      ${r.status === 'in_progress'
+        ? `<button class="btn btn-primary btn-block btn-hero" data-act="continue">${icon('play')} Continue interview</button><button class="btn btn-plain btn-block" data-act="home">Back to Home</button>`
+        : `<div class="btn-row"><button class="btn btn-plain" data-act="export">${icon('table')} Export CSV</button><button class="btn btn-primary" data-act="home">Done</button></div>`}
     </section>
     <div class="section-h"><h2>Choices</h2><span class="meta">best · worst</span></div>
     <section class="card">
@@ -456,6 +457,11 @@
         ${r.status === 'in_progress' ? `<button class="btn btn-plain" data-act="tasks">Choice tasks</button>` : ''}
       </div>
       ${r.status !== 'withdrawn' ? `<button class="btn btn-danger-text btn-block" data-act="withdraw">Mark as withdrawn / incomplete</button>` : `<button class="btn btn-text btn-block" data-act="reopen">Re-open as in progress</button>`}
+    </section>
+    <div class="section-h"><h2>Danger zone</h2></div>
+    <section class="card">
+      <p class="small muted">Deleting removes this participant from the device. ID ${r.pid} is released and will be given to the next new participant, with the same randomisation sequence. A note of the deletion is kept in backups.</p>
+      <button class="btn btn-danger-text btn-block" data-act="delete">Delete participant…</button>
     </section>`;
   };
   VIEWS.review.bind_ = v => {
@@ -469,6 +475,20 @@
       else if (act === 'demo') go({ name: 'demo', pid: v.pid });
       else if (act === 'apais') go({ name: 'apais', pid: v.pid });
       else if (act === 'tasks') go({ name: 'task', pid: v.pid, i: C.firstIncompleteTask(r) || 1 });
+      else if (act === 'continue') openParticipant(v.pid);
+      else if (act === 'delete') {
+        const ok = await dialog({
+          title: 'Delete this participant?',
+          message: `${labelFor(r)} · ${C.tasksDone(r)}/12 tasks · ${r.status.replace('_', ' ')}.<br><br>` +
+            (C.needsExport(r) ? '<b>This record is not in any backup.</b> Its data will be gone for good.<br><br>' : 'The record stays in backups you have already saved.<br><br>') +
+            `ID ${r.pid} will be reused for the next new participant.`,
+          tone: 'danger', confirm: 'Delete participant', destructive: true, typed: String(r.pid)
+        });
+        if (!ok) { toast('Deletion cancelled'); return; }
+        deleted.push({ pid: r.pid, deletedAt: nowISO(), statusAtDeletion: r.status, tasksDone: C.tasksDone(r), createdAt: r.createdAt, wasBackedUp: !C.needsExport(r) });
+        delete records[r.pid]; await persist();
+        toast('Participant deleted', `ID ${r.pid} is free again and will be used next.`, 'ok'); go({ name: 'home' });
+      }
       else if (act === 'withdraw') {
         if (await dialog({ title: 'Mark as withdrawn?', message: `${labelFor(r)} will be flagged as withdrawn or incomplete. Everything already entered is kept and included in exports.`, tone: 'warn', confirm: 'Mark as withdrawn', destructive: true }))
           { r.status = 'withdrawn'; await touch(r); render(); }
@@ -502,7 +522,7 @@
         <div class="srow"><span>Design</span><span>224 participants × 12 tasks × 4 outcomes</span></div>
         <div class="srow"><span>Randomisation</span><span>1–200 approved file · 201–224 extended</span></div>
         <div class="srow"><span>Storage</span><span>localStorage ${lsGet(LS_RECORDS) ? 'OK' : 'empty'} · IndexedDB ${db ? 'OK' : 'unavailable'}</span></div>
-        <div class="srow"><span>On this device</span><span>${Object.keys(records).length} participants</span></div>
+        <div class="srow"><span>On this device</span><span>${Object.keys(records).length} participants${deleted.length ? ` · ${deleted.length} deleted` : ''}</span></div>
       </div>
     </section>
     <div class="section-h"><h2>Factory reset</h2></div>
@@ -533,7 +553,7 @@
         tone: 'danger', confirm: 'Erase everything', destructive: true, typed: 'RESET'
       });
       if (!ok) { toast('Reset cancelled'); return; }
-      records = {}; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
+      records = {}; deleted = []; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
       await persist(); toast('Device reset', 'All data erased and settings restored.', 'ok'); go({ name: 'home' });
     };
   };

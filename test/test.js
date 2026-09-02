@@ -92,4 +92,10 @@ const comb2 = C.buildCombined({1: r1, 3: partial}, settings).split('\r\n').filte
 assert.strictEqual(comb2.length, 1 + 48 + 1, 'participant with no completed task keeps one row');
 assert.ok(comb2[49].startsWith('3,in_progress,30,') && comb2[49].endsWith(',,,,,,,,,,'), comb2[49]);
 assert.ok(C.buildCombined(records, {recordName:true}).startsWith('participant_id,status,name,'));
+// deletion log travels with the backup and merges as a union
+const del = [{ pid: 3, deletedAt: '2026-09-03T12:00:00.000Z', statusAtDeletion: 'in_progress' }];
+const bk2 = C.parseBackup(C.buildBackup(records, settings, '2026-09-03T13:00:00.000Z', del));
+assert.deepStrictEqual(bk2.deleted, del);
+assert.strictEqual(C.mergeDeleted(del, [...del, { pid: 4, deletedAt: '2026-09-03T12:30:00.000Z' }]).length, 2);
+assert.deepStrictEqual(C.parseBackup(C.buildBackup(records, settings)).deleted, [], 'old backups without a log parse fine');
 console.log('core.js: all tests passed');

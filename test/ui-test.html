@@ -5,6 +5,7 @@ const out=[]; const log=(ok,msg)=>{out.push((ok?'PASS ':'FAIL ')+msg); document.
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const f=document.getElementById('f');
 const W=()=>f.contentWindow, D=()=>f.contentDocument;
+async function ev_recreate(){ await until(()=>W().BWSCore,'core'); const C=W().BWSCore; const r=C.newRecord(1,W().BWS_DESIGN); r.demo={name:'Test Patient',age:'28',interviewer:'Anshul'}; r.apais={1:3,2:3,3:4,4:3,5:2,6:5}; for(let i=1;i<=12;i++){const t=r.tasks[i];t.best=t.options[0];t.worst=t.options[3];} r.status='complete'; const recs=JSON.parse(W().localStorage.getItem('bws.records.v1')||'{}'); recs[1]=r; W().localStorage.setItem('bws.records.v1',JSON.stringify(recs)); f.src='../index.html?nosw=3'; await sleep(200); await until(()=>D().querySelector('.plist li'),'home after recreate'); }
 async function until(fn,label,ms=4000){const t0=Date.now();while(Date.now()-t0<ms){try{const v=fn();if(v)return v;}catch(e){}await sleep(25);}throw new Error('timeout: '+label);}
 function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',{bubbles:true}));}
 (async()=>{try{
@@ -75,6 +76,19 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   D().querySelector('[data-act="clear-search"]').click(); await sleep(60);
   log(sq.value===''&&D().querySelectorAll('.plist li').length===1&&!D().body.textContent.includes('match ·'),'clear button restores full list');
   log(D().body.textContent.includes('not backed up'),'unexported banner shown');
+  // delete flow: list row -> summary -> danger zone -> typed ID
+  D().querySelector('.plist li[data-pid="1"]').click(); await until(()=>D().querySelector('[data-act="delete"]'),'summary with delete');
+  log(D().body.textContent.includes('Interview complete'),'list row opens the summary screen');
+  D().querySelector('[data-act="delete"]').click(); await until(()=>D().querySelector('.sheet'),'delete dialog');
+  log(D().querySelector('.sheet [data-dlg="ok"]').disabled&&D().querySelector('.sheet').textContent.includes('not in any backup'),'delete dialog warns when not backed up, confirm disabled');
+  setInput(D().querySelector('#dlg-in'),'2'); await sleep(30); log(D().querySelector('.sheet [data-dlg="ok"]').disabled,'wrong ID keeps delete disabled');
+  D().querySelector('.sheet [data-dlg="cancel"]').click(); await sleep(50); log(!!W().BWSApp.records[1],'cancel keeps the participant');
+  D().querySelector('[data-act="delete"]').click(); await until(()=>D().querySelector('.sheet'),'delete dialog 2');
+  setInput(D().querySelector('#dlg-in'),'1'); await sleep(30); D().querySelector('.sheet [data-dlg="ok"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home after delete');
+  log(!W().BWSApp.records[1]&&D().querySelector('[data-act="new"]').textContent.includes('ID 1'),'participant deleted and ID 1 released for reuse');
+  log(JSON.parse(W().localStorage.getItem('bws.deleted.v1')).length===1,'deletion logged');
+  // recreate participant 1 so the remaining checks keep their assumptions
+  await ev_recreate();
   log(D().querySelector('[data-act="new"]').textContent.includes('ID 2'),'next id is 2');
   // export limit: create 2nd participant quickly -> blocked state check via settings default 2
   log(W().BWSApp.settings.exportLimit===5&&W().BWSApp.settings.interviewer==='Anshul'&&W().BWSApp.settings.recordName===true&&W().BWSApp.settings.theme==='auto','defaults: export limit 5, interviewer Anshul, name on, theme auto');

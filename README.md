@@ -58,6 +58,14 @@ APAIS score) and dates in several forms (`03/09`, `3 sep`, `2026-09-03`). Exact 
 above substrings, and one- or two-letter typos still match for words of 4+ letters. A bare number 1–224 puts that ID first.
 Each result shows which fields matched.
 
+## Deleting a participant
+
+Open the participant from the list → **Danger zone** → **Delete participant…** and type the participant's ID to confirm.
+The record is removed from the device; its ID is released and the next new participant receives it, together with the same
+randomisation sequence (so each of the 224 sequences is still used once). A deletion log (ID, time, status and tasks done at
+deletion, whether it had been backed up) is kept and travels inside backup files, but never appears in the CSV.
+There is deliberately no swipe-to-delete.
+
 ## Backups
 
 - **Save backup** writes one JSON file named `CS-Preference-BWS_backup_YYYY-MM-DD_HH-MM-SS_nNN.json` (device date and time, NN = participants) containing every participant so far.
