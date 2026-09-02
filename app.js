@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.4.0';
+  const APP_VERSION = '2.4.1';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -242,7 +242,7 @@
     const inprog = list.filter(r => r.status === 'in_progress');
     const complete = list.filter(r => r.status === 'complete').length;
     return `
-    <header class="nav nav-large"><div class="nav-row"><h1 class="large-title">CS Preference BWS</h1><button class="icon-btn" data-act="settings" aria-label="Settings">${icon('gear')}</button></div></header>
+    <header class="nav nav-large"><div class="nav-row"><div class="brand"><img src="./logo-mark.svg" alt=""><h1 class="large-title">CS Preference BWS</h1></div><button class="icon-btn" data-act="settings" aria-label="Settings">${icon('gear')}</button></div></header>
     ${un ? `<div class="callout ${blocked ? 'callout-danger' : 'callout-warn'}" role="status">${icon(blocked ? 'lock' : 'warn')}
       <span class="msg"><b>${un}</b> not backed up <span class="caption">(${unC} complete · ${unP} partial)</span>${blocked ? ' · new participants blocked' : ''}</span>
       <button class="btn" data-act="backup">Save backup</button></div>` : ''}

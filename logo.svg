@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CS Preference BWS">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B0654A"/><stop offset="1" stop-color="#8E4A30"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- cradle: an arm curving around a child -->
+  <path d="M356 330 C 356 402 300 440 236 440 C 152 440 108 372 108 296 C 108 208 178 150 262 150 C 300 150 328 160 348 176"
+        fill="none" stroke="#FCFAF4" stroke-width="44" stroke-linecap="round"/>
+  <circle cx="330" cy="236" r="52" fill="#FCFAF4"/>
+  <!-- small pine-green mark: the "most important" choice -->
+  <circle cx="392" cy="120" r="46" fill="#316745"/>
+  <path d="M370 121 l14 14 l30 -32" fill="none" stroke="#FCFAF4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,3 +1,5 @@
+<img src="logo.svg" width="72" align="left" alt="">
+
 # CS Preference BWS — offline data collection app
 
 Offline iPad/iPhone app for the study *Patient priorities for outcomes related to anaesthesia and
@@ -14,7 +16,7 @@ stores everything on the device, and exports CSVs ready for conditional logit in
 | `index.html`, `app.js`, `core.js` | The app. `core.js` is pure logic (design, validation, CSV export); `app.js` is the screens and storage. |
 | `design.js` | The randomisation schedule embedded in the app: participants 1–200 from `participant_randomisation_wide.csv`, 201–224 generated with the same method (seed 20260903). |
 | `data/participant_randomisation_wide_224.csv` | The same schedule as a CSV, for the analysis and the study file. Rows 1–2400 are identical to the original file. |
-| `sw.js`, `manifest.webmanifest`, `icon-*.png` | Make the page installable and fully offline. |
+| `sw.js`, `manifest.webmanifest`, `icon-*.png`, `logo*.svg` | Make the page installable and fully offline; `logo.svg` is the source of the icons (rendered with headless Chrome). |
 | `test/` | Automated tests (`node test/test.js` for logic; `node test/run-chrome.js` for a full interview in headless Chrome). |
 
 ## One-time installation on the iPad or iPhone
