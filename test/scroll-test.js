@@ -1,0 +1,31 @@
+const { spawn } = require('child_process');
+const CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; const port=9343;
+const chrome=spawn(CHROME,['--headless=new','--disable-gpu','--no-first-run','--no-sandbox','--user-data-dir=/tmp/bws-chrome-profile-h',`--remote-debugging-port=${port}`,'about:blank'],{stdio:'ignore'});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{for(let i=0;i<50;i++){try{await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();break;}catch(e){await sleep(200);}}
+ const t=await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'})).json();
+ const ws=new WebSocket(t.webSocketDebuggerUrl); let id=0; const pend=new Map();
+ const send=(m,p={})=>new Promise((res,rej)=>{const i=++id;pend.set(i,{res,rej});ws.send(JSON.stringify({id:i,method:m,params:p}));});
+ ws.onmessage=ev=>{const m=JSON.parse(ev.data); if(m.id&&pend.has(m.id)){const p=pend.get(m.id);pend.delete(m.id);m.error?p.rej(new Error(JSON.stringify(m.error))):p.res(m.result);}};
+ await new Promise(r=>ws.onopen=r); await send('Page.enable'); await send('Runtime.enable');
+ const ev=async e=>(await send('Runtime.evaluate',{expression:e,returnByValue:true,awaitPromise:true})).result.value;
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:600,deviceScaleFactor:1,mobile:true});
+ await send('Page.navigate',{url:'http://127.0.0.1:8765/index.html?nosw=1'}); await sleep(900);
+ await ev(`(async()=>{const C=BWSCore; const recs={}; for(let p=1;p<=12;p++){const r=C.newRecord(p,BWS_DESIGN); r.demo={name:'Patient '+p,age:'28'}; r.status='complete'; r.exportedAt=new Date(Date.now()+1000).toISOString(); recs[p]=r;} localStorage.setItem('bws.records.v1',JSON.stringify(recs)); location.reload();})()`); await sleep(1000);
+ const out=[];
+ await ev(`window.scrollTo(0,700); 'ok'`); await sleep(100);
+ const y0=await ev(`window.scrollY`); out.push('home scrolled to '+y0);
+ await ev(`document.querySelector('.plist li[data-pid="5"]').click(); 'ok'`); await sleep(200);
+ out.push('summary opens at top: '+(await ev(`window.scrollY`))===0 ? 'summary opens at top: yes' : 'summary opens at top: y='+(await ev(`window.scrollY`)));
+ await ev(`document.querySelector('[data-act="home"]').click(); 'ok'`); await sleep(250);
+ const y1=await ev(`window.scrollY`); out.push('back to home restores y='+y1+(Math.abs(y1-y0)<2?' PASS':' FAIL'));
+ await ev(`document.querySelector('[data-act="settings"]').click(); 'ok'`); await sleep(150);
+ await ev(`history.back(); 'ok'`); await sleep(300);
+ const y2=await ev(`window.scrollY`); out.push('history back restores y='+y2+(Math.abs(y2-y0)<2?' PASS':' FAIL'));
+ // in-place re-render keeps scroll: apais taps
+ await ev(`window.scrollTo(0,0); document.querySelector('[data-act="new"]').click(); 'ok'`); await sleep(150);
+ await ev(`(async()=>{const vals={age:'28',admission_date:'2026-09-01',surgery_date:'2026-09-03',height_cm:'156',weight_kg:'68',indication_cs:'x',asa_grade:'II',education:'Graduate',occupation:'Homemaker',monthly_income_inr:'1',parity:'1',live_issues:'1',previous_cs:'No',other_surgery:'No',administration_mode:'Interviewer-administered (Hindi)',interviewer:'A'}; for(const [k,v] of Object.entries(vals)){const el=document.querySelector('[name="'+k+'"]'); if(el){el.value=v; el.dispatchEvent(new Event('input',{bubbles:true}));}} document.querySelector('#demo-form button[type=submit]').click(); return 'ok';})()`); await sleep(200);
+ await ev(`window.scrollTo(0,900); 'ok'`); await sleep(100); const y3=await ev(`window.scrollY`);
+ await ev(`document.querySelector('.opt[data-q="5"][data-v="3"]').click(); 'ok'`); await sleep(150);
+ const y4=await ev(`window.scrollY`); out.push('APAIS tap keeps scroll y='+y3+' -> '+y4+(Math.abs(y4-y3)<2?' PASS':' FAIL'));
+ console.log(out.join('\n')); ws.close(); chrome.kill(); process.exit(out.some(l=>l.includes('FAIL'))?1:0);})().catch(e=>{console.log('FAIL '+e.message);chrome.kill();process.exit(1);});

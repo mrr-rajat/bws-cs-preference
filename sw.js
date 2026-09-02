@@ -1,5 +1,5 @@
 /* Service worker: cache every file on first visit so the app runs with no network afterwards. */
-const VERSION = 'bws-v2.6.0';
+const VERSION = 'bws-v2.6.1';
 const FILES = ['./', './index.html', './app.js', './core.js', './design.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './apple-touch-icon.png', './logo-mark.svg'];
 
 self.addEventListener('install', e => {

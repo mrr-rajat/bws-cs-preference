@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.6.0';
+  const APP_VERSION = '2.6.1';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1', LS_DELETED = 'bws.deleted.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -162,14 +162,25 @@
     task: () => ({ name: 'home' }), review: () => ({ name: 'home' }), settings: () => ({ name: 'home' })
   };
   let navFromHistory = false;
+  // Scroll memory: forward navigation starts at the top; going back restores where you were (iOS convention).
+  const scrollPos = {};
+  const keyOf = v => v.name + (v.pid ? ':' + v.pid : '') + (v.i ? ':' + v.i : '');
+  const isBackNav = (from, to) => { const f = BACK[from.name]; if (!f) return false; const b = f(from); return b.name === to.name && (b.pid || null) === (to.pid || null); };
+  function navigate(v, opts) {
+    scrollPos[keyOf(view)] = window.scrollY;
+    const back = (opts && opts.back) || isBackNav(view, v);
+    view = v; render({ keepScroll: false });
+    const y = back && scrollPos[keyOf(v)] !== undefined ? scrollPos[keyOf(v)] : 0;
+    window.scrollTo(0, y);
+  }
   function go(v) {
     if (pendingReload && v.name === 'home') { location.reload(); return; }
-    view = v; render(); window.scrollTo(0, 0);
+    navigate(v);
     // Keep browser history in step so the hardware/browser back action (and Safari's own swipe) works in browser mode.
     if (!navFromHistory) { try { if (v.name === 'home') history.replaceState({ home: true }, ''); else history.pushState({ view: v.name }, ''); } catch (e) { /* ignore */ } }
   }
   function goBack() { const f = BACK[view.name]; if (!f) return false; if (document.querySelector('.sheet-backdrop')) return false; go(f(view)); return true; }
-  window.addEventListener('popstate', () => { navFromHistory = true; try { if (view.name !== 'home') { const f = BACK[view.name]; view = f ? f(view) : { name: 'home' }; render(); window.scrollTo(0, 0); } } finally { navFromHistory = false; } });
+  window.addEventListener('popstate', () => { navFromHistory = true; try { if (view.name !== 'home' && !document.querySelector('.sheet-backdrop')) { const f = BACK[view.name]; navigate(f ? f(view) : { name: 'home' }, { back: true }); } } finally { navFromHistory = false; } });
 
   // ---------- edge-swipe back (home-screen mode; in Safari's browser mode the native gesture + popstate do this) ----------
   (function edgeSwipe() {
@@ -202,12 +213,14 @@
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
   })();
   window.BWSGoBack = goBack;
-  function render() {
+  function render(opts) {
+    const keep = !(opts && opts.keepScroll === false); const y = window.scrollY;
     document.body.classList.toggle('has-tasknav', view.name === 'task');
     const root = $('#app');
     const fn = VIEWS[view.name] || VIEWS.home;
     root.innerHTML = fn(view);
     if (fn.bind_) fn.bind_(view);
+    if (keep) window.scrollTo(0, y);
     const sw = $('#storage-warning'); if (sw) { sw.textContent = storageWarning; sw.hidden = !storageWarning; }
   }
   const VIEWS = {};
@@ -609,7 +622,7 @@
     if (problems.length) { dialog({ title: 'Design file problem', message: esc(problems.slice(0, 3).join('; ')), tone: 'danger' }); }
     await loadAll();
     applyTheme(settings.theme);
-    try { history.replaceState({ home: true }, ''); } catch (e) { /* ignore */ }
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; history.replaceState({ home: true }, ''); } catch (e) { /* ignore */ }
     render();
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });
