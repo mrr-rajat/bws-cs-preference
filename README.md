@@ -125,6 +125,11 @@ The JSON backup file remains the complete raw copy; the CSV is derived from it.
 4. **Patient name.** Recorded by default (as on the paper proforma). Settings → "Record patient name" turns it off for study-ID-only operation.
 5. **Storage limit.** Each participant is about 5 KB; 224 participants is about 1 MB, far below any iOS limit.
 
+## Gestures
+
+Swipe right from the left edge to go back (same destination as the top-left button on that screen). The hardware/browser
+back action does the same when the app is opened in Safari rather than from the home-screen icon.
+
 ## Appearance
 
 Settings → Appearance: **System** (follows the device), **Light**, or **Dark**. Applied immediately and remembered on the device.

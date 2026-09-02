@@ -98,6 +98,21 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(W().BWSCore.unexportedCount(W().BWSApp.records)===1&&D().body.textContent.includes('not backed up'),'CSV export does not count as a backup');
   D().querySelector('[data-act="backup"]').click(); await sleep(700);
   log(W().BWSCore.unexportedCount(W().BWSApp.records)===0&&!D().body.textContent.includes('not backed up'),'Save backup clears the not-backed-up state');
+  // back gesture + history: open settings, browser back returns home; synthetic edge swipe on proforma returns home
+  D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('.seg'),'settings for back');
+  W().history.back(); await until(()=>D().querySelector('[data-act="new"]'),'home via history.back');
+  log(true,'browser back returns to Home');
+  D().querySelector('.plist li[data-pid="1"]').click(); await until(()=>D().querySelector('[data-act="delete"]'),'summary for swipe');
+  const touch=(type,x,y)=>{const T=W().Touch, TE=W().TouchEvent; const tgt=D().body; const t=new T({identifier:1,target:tgt,clientX:x,clientY:y}); const init={bubbles:true,cancelable:true,touches:type==='touchend'?[]:[t],changedTouches:[t],targetTouches:type==='touchend'?[]:[t]}; D().dispatchEvent(new TE(type,init));};
+  touch('touchstart',6,400); touch('touchmove',40,402); touch('touchmove',200,405); touch('touchend',260,405);
+  await until(()=>D().querySelector('[data-act="new"]'),'home via edge swipe',1500);
+  log(true,'edge swipe from the left returns to Home');
+  D().querySelector('.plist li[data-pid="1"]').click(); await until(()=>D().querySelector('[data-act="delete"]'),'summary for short swipe');
+  touch('touchstart',6,400); touch('touchmove',30,402); touch('touchend',40,402); await sleep(300);
+  log(!!D().querySelector('[data-act="delete"]'),'short swipe snaps back and stays on the screen');
+  touch('touchstart',200,400); touch('touchmove',400,402); touch('touchend',420,402); await sleep(300);
+  log(!!D().querySelector('[data-act="delete"]'),'swipe not starting at the edge is ignored');
+  D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   // theme toggle in settings
   D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('.seg'),'settings');
   D().querySelector('.seg [data-theme="dark"]').click(); await sleep(100);

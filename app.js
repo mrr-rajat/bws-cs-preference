@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.5.0';
+  const APP_VERSION = '2.6.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1', LS_DELETED = 'bws.deleted.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
@@ -156,7 +156,52 @@
   }
 
   // ---------- views ----------
-  function go(v) { if (pendingReload && v.name === 'home') { location.reload(); return; } view = v; render(); window.scrollTo(0, 0); }
+  // Where "back" leads from each screen: the same place as the top-left button on that screen.
+  const BACK = {
+    demo: () => ({ name: 'home' }), apais: v => ({ name: 'demo', pid: v.pid }), intro: v => ({ name: 'apais', pid: v.pid }),
+    task: () => ({ name: 'home' }), review: () => ({ name: 'home' }), settings: () => ({ name: 'home' })
+  };
+  let navFromHistory = false;
+  function go(v) {
+    if (pendingReload && v.name === 'home') { location.reload(); return; }
+    view = v; render(); window.scrollTo(0, 0);
+    // Keep browser history in step so the hardware/browser back action (and Safari's own swipe) works in browser mode.
+    if (!navFromHistory) { try { if (v.name === 'home') history.replaceState({ home: true }, ''); else history.pushState({ view: v.name }, ''); } catch (e) { /* ignore */ } }
+  }
+  function goBack() { const f = BACK[view.name]; if (!f) return false; if (document.querySelector('.sheet-backdrop')) return false; go(f(view)); return true; }
+  window.addEventListener('popstate', () => { navFromHistory = true; try { if (view.name !== 'home') { const f = BACK[view.name]; view = f ? f(view) : { name: 'home' }; render(); window.scrollTo(0, 0); } } finally { navFromHistory = false; } });
+
+  // ---------- edge-swipe back (home-screen mode; in Safari's browser mode the native gesture + popstate do this) ----------
+  (function edgeSwipe() {
+    const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (isIOS && !standalone) return;   // Safari browser mode: leave the gesture to Safari
+    const EDGE = 24, START = 10; let sw = null;
+    const app = () => $('#app');
+    document.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1 || view.name === 'home' || document.querySelector('.sheet-backdrop')) { sw = null; return; }
+      const t = e.touches[0]; if (t.clientX > EDGE) { sw = null; return; }
+      sw = { x: t.clientX, y: t.clientY, t0: Date.now(), active: false };
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (!sw) return; const t = e.touches[0]; const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      if (!sw.active) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > START) { sw = null; return; } if (dx > START) { sw.active = true; document.body.classList.add('swiping'); } else return; }
+      const a = app(); a.style.transition = 'none'; a.style.transform = `translateX(${Math.max(0, dx)}px)`; a.style.opacity = String(1 - Math.min(0.35, dx / window.innerWidth));
+    }, { passive: true });
+    const end = e => {
+      if (!sw) return; const a = app();
+      if (!sw.active) { sw = null; return; }
+      const t = (e.changedTouches && e.changedTouches[0]) || { clientX: sw.x }; const dx = t.clientX - sw.x, vel = dx / Math.max(1, Date.now() - sw.t0);
+      document.body.classList.remove('swiping'); sw = null;
+      a.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
+      if (dx > window.innerWidth * 0.33 || (dx > 60 && vel > 0.6)) {   // long drag, or a real flick of at least 60px
+        a.style.transform = `translateX(${window.innerWidth}px)`; a.style.opacity = '0.5';
+        setTimeout(() => { a.style.transition = ''; a.style.transform = ''; a.style.opacity = ''; goBack(); }, 150);
+      } else { a.style.transform = ''; a.style.opacity = ''; setTimeout(() => { a.style.transition = ''; }, 200); }
+    };
+    document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
+  })();
+  window.BWSGoBack = goBack;
   function render() {
     document.body.classList.toggle('has-tasknav', view.name === 'task');
     const root = $('#app');
@@ -564,6 +609,7 @@
     if (problems.length) { dialog({ title: 'Design file problem', message: esc(problems.slice(0, 3).join('; ')), tone: 'danger' }); }
     await loadAll();
     applyTheme(settings.theme);
+    try { history.replaceState({ home: true }, ''); } catch (e) { /* ignore */ }
     render();
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });
