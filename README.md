@@ -55,6 +55,7 @@ Withdrawn or converted-to-emergency patients: open the participant → Mark as w
 - The home screen shows how many participants, complete **or partial**, have changed since the last backup. By default the app
   **blocks new participants when 5 are pending** (change in Settings; 0 disables the block).
 - A form that was opened but never filled in is discarded automatically when you leave it, and its ID is released.
+- **Export CSV does not count as a backup**: only Save backup clears the not-backed-up count, because only the JSON file can be restored.
 - **Import backup** restores from any backup file, for example after reinstalling. Newer records win on conflict.
 - Weekly: AirDrop or copy the latest backup to the study laptop, so two devices hold the data.
 - Internally the app writes every change to two separate stores (localStorage and IndexedDB) and repairs one from the other.
@@ -104,6 +105,10 @@ The JSON backup file remains the complete raw copy; the CSV is derived from it.
    Mention this in the study file or replace them with sequences from your original R script.
 4. **Patient name.** Recorded by default (as on the paper proforma). Settings → "Record patient name" turns it off for study-ID-only operation.
 5. **Storage limit.** Each participant is about 5 KB; 224 participants is about 1 MB, far below any iOS limit.
+
+## Appearance
+
+Settings → Appearance: **System** (follows the device), **Light**, or **Dark**. Applied immediately and remembered on the device.
 
 ## Factory reset
 

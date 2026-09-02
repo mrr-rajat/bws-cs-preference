@@ -3,15 +3,27 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '2.0.0';
+  const APP_VERSION = '2.1.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
-  const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul' };
+  const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul', theme: 'auto' };
 
   let records = {}, settings = Object.assign({}, DEFAULT_SETTINGS);
   let view = { name: 'home' };
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const nowISO = () => new Date().toISOString();
+
+  // ---------- theme: 'auto' follows the device; 'light'/'dark' force it ----------
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'light' || theme === 'dark') { root.dataset.theme = theme; root.style.colorScheme = theme; }
+    else { delete root.dataset.theme; root.style.colorScheme = ''; }
+    const dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', dark ? '#0b0f14' : '#f2f4f7'));
+  }
+  // Apply as early as possible (before the first render) to avoid a flash of the wrong theme.
+  try { applyTheme((JSON.parse(localStorage.getItem('bws.settings.v1') || '{}')).theme || 'auto'); } catch (e) { /* ignore */ }
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(settings.theme));
 
   // ---------- storage: localStorage + IndexedDB, both written on every change ----------
   let db = null;
@@ -90,7 +102,8 @@
   async function exportCSVs() {
     const name = C.fileName('data', 'csv', Object.keys(records).length);
     const res = await deliverFiles([new File([C.buildCombined(records, settings)], name, { type: 'text/csv' })]);
-    if (res !== 'cancelled') { await markExported(); toast('CSV export ' + res + ': ' + name); } else toast('Export cancelled');
+    // A CSV cannot be restored with Import backup, so it does not count as a backup.
+    toast(res === 'cancelled' ? 'Export cancelled' : 'CSV export ' + res + ' · not a backup: use Save backup for that');
     render();
   }
   function importBackup(file) {
@@ -138,7 +151,9 @@
     up: '<path d="M12 20V9m0 0 5 5m-5-5-5 5M4 4h16"/>',
     warn: '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.4v.1"/>',
     ok: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
-    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>'
+    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>'
   };
   const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -169,13 +184,14 @@
     const list = Object.values(records).sort((a, b) => b.pid - a.pid);
     const nextId = C.nextFreeId(records);
     const un = C.unexportedCount(records);
+    const unP = list.filter(r => r.status === 'in_progress' && C.needsExport(r)).length, unC = un - unP;
     const blocked = settings.exportLimit > 0 && un >= settings.exportLimit;
     const inprog = list.filter(r => r.status === 'in_progress');
     const complete = list.filter(r => r.status === 'complete').length;
     return `
     <header class="nav nav-large"><div class="nav-row"><h1 class="large-title">CS Preference BWS</h1><button class="icon-btn" data-act="settings" aria-label="Settings">${icon('gear')}</button></div></header>
     ${un ? `<div class="callout ${blocked ? 'callout-danger' : 'callout-warn'}" role="status">${icon(blocked ? 'lock' : 'warn')}
-      <span class="msg"><b>${un}</b> not backed up${blocked ? ' · new participants blocked' : ''}</span>
+      <span class="msg"><b>${un}</b> not backed up <span class="caption">(${unC} complete · ${unP} partial)</span>${blocked ? ' · new participants blocked' : ''}</span>
       <button class="btn" data-act="backup">Save backup</button></div>` : ''}
     <section class="card stack">
       <button class="btn btn-primary btn-block btn-hero" data-act="new" ${nextId === null || blocked ? 'disabled' : ''}>${icon('plus')} New participant ${nextId ? `<span class="chip">ID ${nextId}</span>` : '<span class="chip">all 224 used</span>'}</button>
@@ -405,6 +421,14 @@
   // ---- SETTINGS ----
   VIEWS.settings = () => `
     ${navBar('Settings', { act: 'home', label: 'Home' }, null)}
+    <div class="section-h"><h2>Appearance</h2></div>
+    <section class="card">
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        ${[['auto', 'System', 'gear'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']].map(([v, l, i]) => `<button type="button" role="radio" aria-checked="${(settings.theme || 'auto') === v}" class="${(settings.theme || 'auto') === v ? 'sel' : ''}" data-theme="${v}">${icon(i)} ${l}</button>`).join('')}
+      </div>
+      <p class="help">System follows the device's light or dark setting.</p>
+    </section>
+    <div class="section-h"><h2>Data collection</h2></div>
     <form id="settings-form" class="card">
       <label class="field"><span>Default interviewer</span><input name="interviewer" value="${esc(settings.interviewer)}" autocapitalize="words"></label>
       <label class="field"><span>Block new participants when this many are not backed up <em>· 0 never blocks</em></span><input name="exportLimit" type="number" inputmode="numeric" min="0" max="50" value="${settings.exportLimit}"></label>
@@ -429,6 +453,10 @@
     </section>`;
   VIEWS.settings.bind_ = () => {
     $('[data-act="home"]').onclick = () => go({ name: 'home' });
+    $('.seg').onclick = async e => {
+      const b = e.target.closest('[data-theme]'); if (!b) return;
+      settings.theme = b.dataset.theme; applyTheme(settings.theme); await persist(); render();
+    };
     $('#settings-form').onsubmit = async e => {
       e.preventDefault(); const f = e.target;
       settings.interviewer = f.interviewer.value.trim();
@@ -441,7 +469,7 @@
       if (!confirm('Factory reset\n\nThis will permanently erase ' + n + ' participant' + (n === 1 ? '' : 's') + ' and reset all settings on this device.' +
         (un ? '\n\nWARNING: ' + un + ' participant' + (un === 1 ? ' is' : 's are') + ' NOT backed up yet.' : '') + '\n\nContinue?')) return;
       if (prompt('Final confirmation: type RESET in capital letters to erase everything.') !== 'RESET') { toast('Reset cancelled'); return; }
-      records = {}; settings = Object.assign({}, DEFAULT_SETTINGS);
+      records = {}; settings = Object.assign({}, DEFAULT_SETTINGS); applyTheme(settings.theme);
       await persist(); toast('Device reset: all data erased, settings restored'); go({ name: 'home' });
     };
   };
@@ -451,6 +479,7 @@
     const problems = C.validateDesign(DESIGN, BLOCKS);
     if (problems.length) { alert('Design file problem: ' + problems.slice(0, 3).join('; ')); }
     await loadAll();
+    applyTheme(settings.theme);
     render();
     window.addEventListener('online', () => { const o = $('#online'); if (o) o.textContent = 'Online'; });
     window.addEventListener('offline', () => { const o = $('#online'); if (o) o.textContent = 'Offline'; });

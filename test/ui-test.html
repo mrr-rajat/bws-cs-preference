@@ -66,7 +66,21 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
   log(D().body.textContent.includes('not backed up'),'unexported banner shown');
   log(D().querySelector('[data-act="new"]').textContent.includes('ID 2'),'next id is 2');
   // export limit: create 2nd participant quickly -> blocked state check via settings default 2
-  log(W().BWSApp.settings.exportLimit===5&&W().BWSApp.settings.interviewer==='Anshul'&&W().BWSApp.settings.recordName===true,'defaults: export limit 5, interviewer Anshul, name on');
+  log(W().BWSApp.settings.exportLimit===5&&W().BWSApp.settings.interviewer==='Anshul'&&W().BWSApp.settings.recordName===true&&W().BWSApp.settings.theme==='auto','defaults: export limit 5, interviewer Anshul, name on, theme auto');
+  // CSV export must NOT clear the not-backed-up state
+  W().navigator.share=undefined; W().HTMLAnchorElement.prototype.click=function(){};
+  D().querySelector('[data-act="export"]').click(); await sleep(700);
+  log(W().BWSCore.unexportedCount(W().BWSApp.records)===1&&D().body.textContent.includes('not backed up'),'CSV export does not count as a backup');
+  D().querySelector('[data-act="backup"]').click(); await sleep(700);
+  log(W().BWSCore.unexportedCount(W().BWSApp.records)===0&&!D().body.textContent.includes('not backed up'),'Save backup clears the not-backed-up state');
+  // theme toggle in settings
+  D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('.seg'),'settings');
+  D().querySelector('.seg [data-theme="dark"]').click(); await sleep(100);
+  log(D().documentElement.dataset.theme==='dark'&&W().BWSApp.settings.theme==='dark'&&D().querySelector('.seg [data-theme="dark"]').classList.contains('sel'),'dark theme applied and saved');
+  log(JSON.parse(W().localStorage.getItem('bws.settings.v1')).theme==='dark','theme persisted');
+  D().querySelector('.seg [data-theme="auto"]').click(); await sleep(100);
+  log(!D().documentElement.dataset.theme,'system theme removes override');
+  D().querySelector('[data-act="home"]').click(); await until(()=>D().querySelector('[data-act="new"]'),'home');
   log(!D().querySelector('[data-act="new"]').disabled,'new participant not blocked with 1 of 5 un-backed-up');
   // factory reset: cancelled confirm keeps data; RESET erases records and settings
   D().querySelector('[data-act="settings"]').click(); await until(()=>D().querySelector('[data-act="wipe"]'),'settings');

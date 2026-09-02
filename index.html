@@ -32,13 +32,21 @@
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue","Noto Sans Devanagari","Noto Sans",sans-serif;
   --font-hi:-apple-system,"Kohinoor Devanagari","Devanagari Sangam MN","Noto Sans Devanagari",system-ui,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root{
+/* Dark tokens: follow the device unless Settings forces light/dark via data-theme on <html>. */
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#0b0f14; --surface:#151a21; --surface-2:#1b2129; --hairline:rgba(235,235,245,.14); --hairline-strong:rgba(235,235,245,.26);
   --text:#f2f4f7; --text-2:#aab3bf; --text-3:#7d8794;
   --accent:#5aa6ea; --accent-ink:#06131f; --accent-tint:#152a40; --accent-tint-ink:#9cc8f2;
   --success:#4cc38a; --success-tint:#12301f; --danger:#f0736b; --danger-tint:#3a1a19; --warn:#e2a83b; --warn-tint:#3a2a0e; --warn-ink:#ffd58a;
   --focus:rgba(90,166,234,.45);
 }}
+:root[data-theme=dark]{
+  --bg:#0b0f14; --surface:#151a21; --surface-2:#1b2129; --hairline:rgba(235,235,245,.14); --hairline-strong:rgba(235,235,245,.26);
+  --text:#f2f4f7; --text-2:#aab3bf; --text-3:#7d8794;
+  --accent:#5aa6ea; --accent-ink:#06131f; --accent-tint:#152a40; --accent-tint-ink:#9cc8f2;
+  --success:#4cc38a; --success-tint:#12301f; --danger:#f0736b; --danger-tint:#3a1a19; --warn:#e2a83b; --warn-tint:#3a2a0e; --warn-ink:#ffd58a;
+  --focus:rgba(90,166,234,.45);
+}
 
 /* ---------- base ---------- */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -188,6 +196,11 @@ table.mini{width:100%;border-collapse:collapse;font-size:var(--fs-sub)}
 .mini td{padding:var(--s2) var(--s1);border-top:0.5px solid var(--hairline);vertical-align:top}
 .mini td.n{color:var(--text-3);width:28px} .mini td.best{color:var(--success)} .mini td.worst{color:var(--danger)}
 
+/* segmented control */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:2px;background:var(--surface-2);border-radius:var(--r-s);box-shadow:inset 0 0 0 0.5px var(--hairline)}
+.seg button{min-height:40px;border-radius:8px;font-size:var(--fs-sub);font-weight:600;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.seg button.sel{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 0.5px var(--hairline)}
+.seg svg.ic{width:18px;height:18px}
 /* settings rows */
 .srow{display:flex;justify-content:space-between;gap:var(--s3);padding:var(--s3) 0;font-size:var(--fs-sub)} .srow + .srow{border-top:0.5px solid var(--hairline)} .srow span:last-child{color:var(--text-2);text-align:right}
 
