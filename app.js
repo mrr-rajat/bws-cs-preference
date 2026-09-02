@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: false, exportLimit: 1, interviewer: 'Anshul' };
 
@@ -78,7 +78,7 @@
   }
   function markExported() {
     const t = nowISO();
-    for (const r of Object.values(records)) if (r.status !== 'in_progress') r.exportedAt = t;
+    for (const r of Object.values(records)) r.exportedAt = t;   // partial records are in the backup too
     return persist();
   }
   async function saveBackup() {
@@ -137,6 +137,7 @@
 
   // ---- HOME ----
   VIEWS.home = () => {
+    if (C.dropEmptyRecords(records)) persist();   // an ID opened but never filled in is released again
     const list = Object.values(records).sort((a, b) => b.pid - a.pid);
     const nextId = C.nextFreeId(records);
     const un = C.unexportedCount(records);
@@ -145,11 +146,11 @@
     return `
     <header class="bar"><h1>CS Preference BWS</h1><button class="link" data-act="settings">Settings</button></header>
     ${un ? `<div class="banner ${blocked ? 'banner-red' : 'banner-amber'}">
-      <b>${un}</b> participant${un > 1 ? 's' : ''} not yet backed up.${blocked ? ' New participants are blocked until you back up.' : ''}
+      <b>${un}</b> participant${un > 1 ? 's' : ''} (complete or partial) not yet backed up.${blocked ? ' New participants are blocked until you save a backup.' : ''}
       <button data-act="backup">Save backup</button></div>` : ''}
     <section class="card">
       <button class="primary big" data-act="new" ${nextId === null || blocked ? 'disabled' : ''}>New participant${nextId ? ' — ID ' + nextId : ' (all 224 used)'}</button>
-      ${inprog.length ? `<button class="secondary big" data-act="open" data-pid="${inprog[0].pid}">Resume ID ${inprog[0].pid}</button>` : ''}
+      ${inprog.map(r => `<button class="secondary big" data-act="open" data-pid="${r.pid}">Resume ID ${r.pid} <small>(partial · ${C.tasksDone(r)}/12 tasks · saved ${new Date(r.updatedAt).toLocaleTimeString()})</small></button>`).join('')}
       <div class="row3">
         <button data-act="backup">Save backup<br><small>1 file, full copy</small></button>
         <button data-act="export">Export CSVs<br><small>3 files, for R</small></button>
@@ -201,7 +202,7 @@
     const r = records[v.pid]; const errs = v.errors || {};
     const fields = C.DEMO_FIELDS.filter(f => C.fieldVisible(f, r.demo, settings));
     return `
-    <header class="bar"><button class="link" data-act="home">‹ Home</button><h1>ID ${r.pid} · Case proforma</h1><span></span></header>
+    <header class="bar"><button class="link" data-act="home">‹ Save & exit</button><h1>ID ${r.pid} · Case proforma</h1><span></span></header>
     <form id="demo-form" class="card" autocomplete="off">
       ${fields.map(f => `<label class="field ${errs[f.key] ? 'err' : ''}"><span>${esc(f.label)}${f.optional ? ' <em>(optional)</em>' : ''}</span>
         ${f.type === 'select'
@@ -227,7 +228,7 @@
   VIEWS.apais = v => {
     const r = records[v.pid]; const s = C.apaisScores(r.apais);
     return `
-    <header class="bar"><button class="link" data-act="back">‹ Proforma</button><h1>ID ${r.pid} · Preoperative anxiety (APAIS)</h1><span></span></header>
+    <header class="bar"><button class="link" data-act="back">‹ Proforma</button><h1>ID ${r.pid} · Preoperative anxiety (APAIS)</h1><button class="link" data-act="home">Save & exit</button></header>
     <section class="card">
       <p class="hi">कृपया बताइए कि हर वाक्य आप पर कितना लागू होता है।</p>
       <p class="muted small">Please indicate how strongly each statement applies to you (1 = not at all, 5 = extremely).</p>
@@ -245,6 +246,7 @@
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.q) { r.apais[b.dataset.q] = Number(b.dataset.v); touch(r); render(); }
       else if (b.dataset.act === 'back') go({ name: 'demo', pid: v.pid });
+      else if (b.dataset.act === 'home') go({ name: 'home' });
       else if (b.dataset.act === 'next') go({ name: 'intro', pid: v.pid });
     };
   };
@@ -270,7 +272,7 @@
     if (!t.startedAt) { t.startedAt = nowISO(); touch(r); }
     const done = C.taskComplete(t);
     return `
-    <header class="bar"><button class="link" data-act="home">‹ Home</button><h1>ID ${r.pid} · सवाल ${v.i} / ${n}</h1><span class="muted small">set ${t.taskId}</span></header>
+    <header class="bar"><button class="link" data-act="home">‹ Save & exit</button><h1>ID ${r.pid} · सवाल ${v.i} / ${n}</h1><span class="muted small">set ${t.taskId}</span></header>
     <div class="progress"><div style="width:${((v.i - 1) / n) * 100}%"></div></div>
     <section class="card">
       <div class="thead"><span></span><span class="hi">सबसे ज़्यादा ज़रूरी<br><small class="en">Most important</small></span><span class="hi">सबसे कम ज़रूरी<br><small class="en">Least important</small></span></div>

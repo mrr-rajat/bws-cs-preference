@@ -147,10 +147,26 @@
     return null;
   }
 
+  // Any record (including a partially filled one) changed since the last backup counts as not backed up.
   function needsExport(rec) {
-    return rec.status !== 'in_progress' && (!rec.exportedAt || rec.exportedAt < rec.updatedAt);
+    return !rec.exportedAt || rec.exportedAt < rec.updatedAt;
   }
   function unexportedCount(records) { return Object.values(records).filter(needsExport).length; }
+
+  // A record with nothing entered yet (only prefilled interviewer / administration mode) can be discarded silently.
+  const PREFILLED = new Set(['interviewer', 'administration_mode']);
+  function isEmptyRecord(rec) {
+    if (!rec || rec.status !== 'in_progress') return false;
+    const demoHasData = Object.keys(rec.demo || {}).some(k => !PREFILLED.has(k) && String(rec.demo[k] ?? '').trim() !== '');
+    const apaisHasData = Object.values(rec.apais || {}).some(v => v);
+    const tasksHaveData = Object.values(rec.tasks || {}).some(t => t.best || t.worst);
+    return !demoHasData && !apaisHasData && !tasksHaveData;
+  }
+  function dropEmptyRecords(records) {
+    let dropped = 0;
+    for (const k of Object.keys(records)) if (isEmptyRecord(records[k])) { delete records[k]; dropped++; }
+    return dropped;
+  }
 
   // Merge two record maps; the more recently updated copy of each participant wins.
   function mergeRecords(a, b) {
@@ -275,6 +291,6 @@
 
   return { APP_ID, DATA_VERSION, MAX_PID, OUTCOMES, OUTCOME_BY_ID, APAIS, APAIS_SCALE, DEMO_FIELDS,
     apaisScores, fieldVisible, validateDemo, newRecord, taskComplete, tasksDone, firstIncompleteTask, nextFreeId,
-    needsExport, unexportedCount, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide,
+    needsExport, unexportedCount, isEmptyRecord, dropEmptyRecords, mergeRecords, csvEscape, toCSV, buildBwsLong, buildBwsChoices, buildParticipantsWide,
     buildBackup, parseBackup, stamp, fileName, STUDY_SLUG, validateDesign };
 });

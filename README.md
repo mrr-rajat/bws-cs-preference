@@ -43,7 +43,8 @@ the icon has its own storage that iOS does not clear automatically.
 5. On Finish the participant is marked Complete and the review screen shows all choices.
 6. Tap **Save backup** on the review screen (see below). Then Done.
 
-An interview can be interrupted at any point: every tap is saved. Home shows **Resume ID n** for an unfinished participant.
+An interview can be interrupted at any point: every tap is saved, and **Save & exit** in the header returns to Home.
+Home shows **Resume ID n (partial …)** for each unfinished participant; partial records are included in backups and exports with status `in_progress`.
 Withdrawn or converted-to-emergency patients: open the participant → Mark as withdrawn. Their data is kept and flagged.
 
 ## Backups
@@ -51,8 +52,10 @@ Withdrawn or converted-to-emergency patients: open the participant → Mark as w
 - **Save backup** writes one JSON file named `CS-Preference-BWS_backup_YYYY-MM-DD_HH-MM-SS_nNN.json` (device date and time, NN = participants) containing every participant so far.
   Choose *Save to Files* in the share sheet and pick **On My iPad**, or a USB stick plugged into the device.
   Each backup is a complete snapshot, so only the newest one matters.
-- The home screen shows how many completed participants are not yet backed up. By default the app **blocks new
-  participants when 1 is pending** (change in Settings; 0 disables the block).
+- The home screen shows how many participants, complete **or partial**, have changed since the last backup. By default the app
+  **blocks new participants when 1 is pending** (change in Settings; 0 disables the block). So you cannot start a second
+  form on top of a half-finished one without saving a backup first.
+- A form that was opened but never filled in is discarded automatically when you leave it, and its ID is released.
 - **Import backup** restores from any backup file, for example after reinstalling. Newer records win on conflict.
 - Weekly: AirDrop or copy the latest backup to the study laptop, so two devices hold the data.
 - Internally the app writes every change to two separate stores (localStorage and IndexedDB) and repairs one from the other.

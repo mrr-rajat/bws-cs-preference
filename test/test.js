@@ -73,4 +73,13 @@ assert.strictEqual(C.nextFreeId(Object.fromEntries(Array.from({length:224},(_,i)
 const fn = C.fileName('backup','json',12,new Date(2026,8,3,14,5,33));
 assert.strictEqual(fn, 'CS-Preference-BWS_backup_2026-09-03_14-05-33_n12.json', fn);
 assert.strictEqual(C.fileName('bws-long','csv',undefined,new Date(2026,0,9,9,7,1)), 'CS-Preference-BWS_bws-long_2026-01-09_09-07-01.csv');
+// partial records count as un-backed-up; empty ones are discardable
+const p = C.newRecord(7, DESIGN); p.demo.interviewer = 'Anshul'; p.demo.administration_mode = 'Interviewer-administered (Hindi)';
+assert.strictEqual(C.isEmptyRecord(p), true, 'prefilled-only record is empty');
+assert.strictEqual(C.needsExport(p), true, 'never-exported record needs export');
+p.demo.age = '30'; assert.strictEqual(C.isEmptyRecord(p), false, 'age entered -> not empty');
+const q = C.newRecord(8, DESIGN); q.tasks[1].best = q.tasks[1].options[0]; assert.strictEqual(C.isEmptyRecord(q), false);
+const e = C.newRecord(9, DESIGN); const rs = {7: p, 8: q, 9: e};
+assert.strictEqual(C.dropEmptyRecords(rs), 1); assert.deepStrictEqual(Object.keys(rs).sort(), ['7','8']);
+p.exportedAt = '2099-01-01T00:00:00.000Z'; assert.strictEqual(C.needsExport(p), false);
 console.log('core.js: all tests passed');
