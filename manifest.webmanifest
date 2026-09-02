@@ -1,0 +1,16 @@
+{
+  "name": "CS Preference BWS Study",
+  "short_name": "CS BWS",
+  "description": "Offline data collection for the best-worst scaling study of patient priorities during elective caesarean delivery",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f6f9",
+  "theme_color": "#0f4c81",
+  "lang": "hi",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
