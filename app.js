@@ -3,7 +3,7 @@
   'use strict';
   const C = window.BWSCore;
   const DESIGN = window.BWS_DESIGN, BLOCKS = window.BWS_BLOCKS;
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.3.1';
   const LS_RECORDS = 'bws.records.v1', LS_SETTINGS = 'bws.settings.v1';
   const DEFAULT_SETTINGS = { recordName: true, exportLimit: 5, interviewer: 'Anshul' };
 
@@ -135,6 +135,12 @@
     return '<span class="pill ' + c + '">' + t + '</span>';
   }
 
+  // "Name (ID 12)" when a name was recorded, otherwise "ID 12".
+  function labelFor(r) {
+    const name = (r.demo && r.demo.name || '').trim();
+    return name ? `<b>${esc(name)}</b> <small class="muted">(ID ${r.pid})</small>` : `<b>ID ${r.pid}</b>`;
+  }
+
   // ---- HOME ----
   VIEWS.home = () => {
     if (C.dropEmptyRecords(records)) persist();   // an ID opened but never filled in is released again
@@ -145,12 +151,12 @@
     const inprog = list.filter(r => r.status === 'in_progress');
     return `
     <header class="bar"><h1>CS Preference BWS</h1><button class="link" data-act="settings">Settings</button></header>
-    ${un ? `<div class="banner ${blocked ? 'banner-red' : 'banner-amber'}">
-      <b>${un}</b> participant${un > 1 ? 's' : ''} (complete or partial) not yet backed up.${blocked ? ' New participants are blocked until you save a backup.' : ''}
+    ${un ? `<div class="banner banner-line ${blocked ? 'banner-red' : 'banner-amber'}">
+      <span><b>${un}</b> not backed up${blocked ? ' · new participants blocked' : ''}</span>
       <button data-act="backup">Save backup</button></div>` : ''}
     <section class="card">
       <button class="primary big" data-act="new" ${nextId === null || blocked ? 'disabled' : ''}>New participant${nextId ? ' — ID ' + nextId : ' (all 224 used)'}</button>
-      ${inprog.map(r => `<button class="secondary big" data-act="open" data-pid="${r.pid}">Resume ID ${r.pid} <small>(partial · ${C.tasksDone(r)}/12 tasks · saved ${new Date(r.updatedAt).toLocaleTimeString()})</small></button>`).join('')}
+      ${inprog.map(r => `<button class="secondary big" data-act="open" data-pid="${r.pid}">Resume ${labelFor(r)} <small>· ${C.tasksDone(r)}/12 tasks · saved ${new Date(r.updatedAt).toLocaleTimeString()}</small></button>`).join('')}
       <div class="row3">
         <button data-act="backup">Save backup<br><small>1 file, full copy</small></button>
         <button data-act="export">Export CSVs<br><small>3 files, for R</small></button>
@@ -161,7 +167,7 @@
     <section class="card">
       <h2>Participants <small>${list.length} of 224 · ${list.filter(r => r.status === 'complete').length} complete</small></h2>
       ${list.length ? '<ul class="plist">' + list.map(r => `<li data-act="open" data-pid="${r.pid}">
-          <b>ID ${r.pid}</b> ${statusPill(r)} <span class="muted">${C.tasksDone(r)}/12 tasks · ${new Date(r.updatedAt).toLocaleString()}</span>
+          ${labelFor(r)} ${statusPill(r)} <span class="muted">${C.tasksDone(r)}/12 tasks · ${new Date(r.updatedAt).toLocaleString()}</span>
           ${C.needsExport(r) ? '<span class="dot" title="not backed up"></span>' : ''}</li>`).join('') + '</ul>' : '<p class="muted">No participants yet.</p>'}
     </section>
     <footer class="muted small">v${APP_VERSION} · data stays on this device until you export · <span id="online">${navigator.onLine ? 'online' : 'offline'}</span></footer>`;
