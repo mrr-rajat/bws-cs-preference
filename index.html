@@ -251,6 +251,7 @@ body.has-sheet{overflow:hidden}
 #toast .t-title{font-size:var(--fs-sub);font-weight:600;line-height:1.35}
 #toast .t-detail{font-size:var(--fs-caption);color:var(--text-2);line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
 .task-nav ~ #toast, body.has-tasknav #toast{bottom:calc(132px + env(safe-area-inset-bottom))}
+#toast[hidden]{display:none}
 @keyframes toastin{from{transform:translate(-50%,12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 #storage-warning{position:fixed;top:0;left:0;right:0;background:var(--danger);color:#fff;text-align:center;padding:8px;font-size:var(--fs-sub);font-weight:600;z-index:30}
 

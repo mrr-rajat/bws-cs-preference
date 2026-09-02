@@ -10,6 +10,7 @@ function setInput(el,val){el.value=val;el.dispatchEvent(new (W().Event)('input',
 (async()=>{try{
   await until(()=>D().querySelector('[data-act="new"]'),'home');
   log(true,'home rendered; next id button: '+D().querySelector('[data-act="new"]').textContent.trim());
+  log(W().getComputedStyle(D().querySelector('#toast')).display==='none','toast is invisible when there is no message');
   D().querySelector('[data-act="new"]').click();
   await until(()=>D().querySelector('#demo-form'),'demo form');
   const vals={age:'28',admission_date:'2026-09-01',surgery_date:'2026-09-03',height_cm:'156',weight_kg:'68',indication_cs:'Previous CS',asa_grade:'II',education:'Graduate',occupation:'Homemaker',monthly_income_inr:'25000',parity:'1',live_issues:'1',previous_cs:'Yes',other_surgery:'No',administration_mode:'Interviewer-administered (Hindi)',interviewer:'AR'};
